@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026, Redis
+# SPDX-License-Identifier: Apache-2.0
+
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("nvidia-nat-redis")
+except PackageNotFoundError:  # pragma: no cover - local editable installs before metadata is built
+    __version__ = "0.0.0"

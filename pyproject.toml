@@ -1,0 +1,71 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=69", "setuptools-scm>=8"]
+
+[project]
+name = "nvidia-nat-redis"
+dynamic = ["version"]
+requires-python = ">=3.11,<3.14"
+description = "Redis Agent Memory Server integration for NVIDIA NeMo Agent Toolkit"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Redis" }]
+maintainers = [{ name = "Redis" }]
+keywords = ["ai", "agents", "memory", "redis", "nemo", "nat"]
+classifiers = [
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "agent-memory-client>=0.14.0,<1.0.0",
+  "nvidia-nat-core>=1.5.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.3,<9.0",
+  "pytest-asyncio>=0.24,<1.0",
+]
+
+[project.urls]
+documentation = "https://github.com/redis/nvidia-nat-redis/tree/main/docs"
+issues = "https://github.com/redis/nvidia-nat-redis/issues"
+source = "https://github.com/redis/nvidia-nat-redis"
+
+[project.entry-points.'nat.components']
+redis_agent_memory_server = "nvidia_nat_redis.agent_memory_server.register"
+
+[dependency-groups]
+dev = [
+  "nvidia-nat-langchain>=1.5.0,<2.0.0",
+  "ruff>=0.15.0,<0.16.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nvidia_nat_redis*"]
+
+[tool.setuptools_scm]
+git_describe_command = "git describe --long --first-parent"
+
+[tool.uv]
+managed = true
+package = true
+
+[tool.uv.sources]
+nvidia-nat-core = { path = "../NeMo-Agent-Toolkit/packages/nvidia_nat_core", editable = true }
+nvidia-nat-langchain = { path = "../NeMo-Agent-Toolkit/packages/nvidia_nat_langchain", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]

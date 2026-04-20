@@ -1,0 +1,38 @@
+general:
+  telemetry:
+    enabled: false
+
+llms:
+  nim_llm:
+    _type: nim
+    model_name: meta/llama-3.3-70b-instruct
+    temperature: 0.7
+    max_tokens: 1024
+
+memory:
+  redis_memory:
+    _type: agent_memory_server
+    base_url: http://localhost:8000
+    default_namespace: nat-tool-memory
+
+functions:
+  get_memory:
+    _type: get_memory
+    memory: redis_memory
+    description: |
+      Always check memory for user preferences before answering.
+      Use the active user_id from the conversation context.
+
+  add_memory:
+    _type: add_memory
+    memory: redis_memory
+    description: |
+      Add durable user preferences and facts to long-term memory whenever the
+      user shares them.
+
+workflow:
+  _type: react_agent
+  tool_names: [get_memory, add_memory]
+  description: "A chat agent using Redis Agent Memory Server for long-term memory"
+  llm_name: nim_llm
+
