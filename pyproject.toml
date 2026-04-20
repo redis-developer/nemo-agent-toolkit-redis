@@ -31,9 +31,9 @@ test = [
 ]
 
 [project.urls]
-documentation = "https://github.com/redis/nvidia-nat-redis/tree/main/docs"
-issues = "https://github.com/redis/nvidia-nat-redis/issues"
-source = "https://github.com/redis/nvidia-nat-redis"
+documentation = "https://github.com/redis-developer/nvidia-nat-redis/tree/main/docs"
+issues = "https://github.com/redis-developer/nvidia-nat-redis/issues"
+source = "https://github.com/redis-developer/nvidia-nat-redis"
 
 [project.entry-points.'nat.components']
 redis_agent_memory_server = "nvidia_nat_redis.agent_memory_server.register"
