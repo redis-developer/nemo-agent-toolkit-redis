@@ -29,6 +29,10 @@ make build
 4. Open a pull request with a short description of the change and any testing
    notes.
 
+For release or handoff candidates, also run the example smoke tests against a
+local Redis Agent Memory stack. Both example directories are self-contained and
+document their Docker and runner commands.
+
 ## Style
 
 - Keep changes focused and small.

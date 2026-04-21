@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from nat.builder.context import Context
 from nat.memory.models import MemoryItem
 
-from nvidia_nat_redis.agent_memory_server import AgentMemoryServerEditor, RedisAgentMemoryServerEditor
+from nvidia_nat_redis.redis_agent_memory import RedisAgentMemoryEditor
 
 
 @pytest.fixture(name="mock_client")
@@ -22,15 +23,11 @@ def mock_client_fixture() -> AsyncMock:
 
 
 @pytest.fixture(name="editor")
-def editor_fixture(mock_client: AsyncMock) -> RedisAgentMemoryServerEditor:
-    return RedisAgentMemoryServerEditor(client=mock_client)
+def editor_fixture(mock_client: AsyncMock) -> RedisAgentMemoryEditor:
+    return RedisAgentMemoryEditor(client=mock_client)
 
 
-def test_editor_alias() -> None:
-    assert AgentMemoryServerEditor is RedisAgentMemoryServerEditor
-
-
-async def test_add_items_uses_memory_and_metadata(editor: RedisAgentMemoryServerEditor, mock_client: AsyncMock) -> None:
+async def test_add_items_uses_memory_and_metadata(editor: RedisAgentMemoryEditor, mock_client: AsyncMock) -> None:
     item = MemoryItem(
         user_id="user-123",
         memory="User prefers concise answers.",
@@ -57,7 +54,7 @@ async def test_add_items_uses_memory_and_metadata(editor: RedisAgentMemoryServer
 
 
 async def test_add_items_uses_conversation_when_memory_missing(
-    editor: RedisAgentMemoryServerEditor, mock_client: AsyncMock
+    editor: RedisAgentMemoryEditor, mock_client: AsyncMock
 ) -> None:
     item = MemoryItem(
         user_id="user-456",
@@ -75,12 +72,36 @@ async def test_add_items_uses_conversation_when_memory_missing(
     assert records[0].namespace == "nat"
 
 
-async def test_search_requires_user_id(editor: RedisAgentMemoryServerEditor) -> None:
+async def test_add_items_uses_runtime_conversation_id_when_session_missing(
+    editor: RedisAgentMemoryEditor, mock_client: AsyncMock
+) -> None:
+    item = MemoryItem(user_id="user-456", memory="Remember my timezone.")
+
+    with patch.object(Context, "get", return_value=SimpleNamespace(conversation_id="session-from-context")):
+        await editor.add_items([item])
+
+    records = mock_client.create_long_term_memory.call_args.args[0]
+    assert records[0].session_id == "session-from-context"
+
+
+async def test_search_requires_user_id(editor: RedisAgentMemoryEditor) -> None:
     with pytest.raises(ValueError, match="user_id"):
         await editor.search(query="preferences")
 
 
-async def test_search_translates_results(editor: RedisAgentMemoryServerEditor, mock_client: AsyncMock) -> None:
+async def test_search_uses_runtime_user_id_when_missing_kwarg(
+    editor: RedisAgentMemoryEditor, mock_client: AsyncMock
+) -> None:
+    mock_client.search_long_term_memory.return_value = SimpleNamespace(memories=[])
+
+    with patch.object(Context, "get", return_value=SimpleNamespace(user_id="runtime-user")):
+        await editor.search(query="preferences")
+
+    call_kwargs = mock_client.search_long_term_memory.call_args.kwargs
+    assert call_kwargs["user_id"] == {"eq": "runtime-user"}
+
+
+async def test_search_translates_results(editor: RedisAgentMemoryEditor, mock_client: AsyncMock) -> None:
     mock_client.search_long_term_memory.return_value = SimpleNamespace(
         memories=[
             SimpleNamespace(
@@ -123,13 +144,13 @@ async def test_search_translates_results(editor: RedisAgentMemoryServerEditor, m
     assert results[0].metadata["namespace"] == "nat"
 
 
-async def test_remove_items_by_memory_id(editor: RedisAgentMemoryServerEditor, mock_client: AsyncMock) -> None:
+async def test_remove_items_by_memory_id(editor: RedisAgentMemoryEditor, mock_client: AsyncMock) -> None:
     await editor.remove_items(memory_id="mem-1")
     mock_client.delete_long_term_memories.assert_called_once_with(["mem-1"])
 
 
 async def test_remove_items_by_user_id_searches_and_deletes(
-    editor: RedisAgentMemoryServerEditor, mock_client: AsyncMock
+    editor: RedisAgentMemoryEditor, mock_client: AsyncMock
 ) -> None:
     mock_client.search_long_term_memory.side_effect = [
         SimpleNamespace(memories=[SimpleNamespace(id="mem-1"), SimpleNamespace(id="mem-2")]),
@@ -142,6 +163,6 @@ async def test_remove_items_by_user_id_searches_and_deletes(
     mock_client.delete_long_term_memories.assert_called_once_with(["mem-1", "mem-2"])
 
 
-async def test_remove_items_requires_selector(editor: RedisAgentMemoryServerEditor) -> None:
+async def test_remove_items_requires_selector(editor: RedisAgentMemoryEditor) -> None:
     with pytest.raises(ValueError, match="requires memory_id"):
         await editor.remove_items()

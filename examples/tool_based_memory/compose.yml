@@ -1,0 +1,20 @@
+services:
+  redis:
+    image: ${REDIS_STACK_IMAGE:-redis/redis-stack:latest}
+    ports:
+      - "${HOST_REDIS_PORT:-6379}:6379"
+
+  agent-memory-server:
+    image: ${AGENT_MEMORY_SERVER_IMAGE:-redislabs/agent-memory-server:latest}
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    environment:
+      DISABLE_AUTH: "true"
+      REDIS_URL: redis://redis:6379
+      LONG_TERM_MEMORY: "true"
+      ENABLE_DISCRETE_MEMORY_EXTRACTION: "true"
+    command: ["agent-memory", "api", "--host", "0.0.0.0", "--port", "8000", "--task-backend=asyncio"]
+    ports:
+      - "${HOST_REDIS_AGENT_MEMORY_PORT:-8000}:8000"

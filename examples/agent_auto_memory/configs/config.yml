@@ -1,0 +1,42 @@
+general:
+  telemetry:
+    enabled: false
+
+llms:
+  openai_llm:
+    _type: openai
+    model_name: ${NAT_OPENAI_MODEL:-gpt-4o-mini}
+
+functions:
+  assistant_chat:
+    _type: chat_completion
+    llm_name: openai_llm
+    system_prompt: >-
+      You are a helpful assistant. When memory context is provided, use it to
+      answer consistently about the user's preferences and prior facts.
+
+memory:
+  redis_ltm:
+    _type: redis_agent_memory_backend
+    base_url: ${REDIS_AGENT_MEMORY_URL:-http://localhost:8000}
+    default_namespace: ${REDIS_AGENT_MEMORY_NAMESPACE:-nat-auto-memory}
+
+workflow:
+  _type: redis_agent_memory_auto_memory
+  description: >-
+    A chat agent that uses Redis Agent Memory working memory plus memory_prompt
+    hydration on every turn.
+  inner_agent_name: assistant_chat
+  memory_name: redis_ltm
+  default_user_id: demo-user
+  default_session_id: demo-session
+  memory_prompt:
+    optimize_query: false
+    long_term_search:
+      limit: 5
+  working_memory:
+    namespace: ${REDIS_AGENT_MEMORY_NAMESPACE:-nat-auto-memory}
+    model_name: ${NAT_OPENAI_MODEL:-gpt-4o-mini}
+    ttl_seconds: 86400
+    long_term_memory_strategy:
+      strategy: discrete

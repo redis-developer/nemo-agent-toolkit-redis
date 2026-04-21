@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from agent_memory_client import MemoryAPIClient
+from nat.builder.context import Context
 from nat.memory.interfaces import MemoryEditor
 from nat.memory.models import MemoryItem
 
@@ -93,6 +94,13 @@ def _metadata_value(item: MemoryItem, field_name: str, override: Any = None) -> 
     return None
 
 
+def _runtime_context_value(field_name: str) -> str | None:
+    value = getattr(Context.get(), field_name, None)
+    if isinstance(value, str):
+        value = value.strip()
+    return value or None
+
+
 def _normalize_memory_ids(single_id: Any = None, many_ids: Any = None) -> list[str]:
     ids: list[str] = []
 
@@ -142,19 +150,19 @@ def _memory_record_to_metadata(record: Any) -> dict[str, Any]:
     return metadata
 
 
-class RedisAgentMemoryServerEditor(MemoryEditor):
+class RedisAgentMemoryEditor(MemoryEditor):
     """
-    NAT MemoryEditor backed by Redis Agent Memory Server long-term memory APIs.
+    NAT MemoryEditor backed by Redis Agent Memory long-term memory APIs.
 
     The implementation intentionally stays close to NAT's existing memory editor
-    shape while exposing the common Redis Agent Memory Server runtime filters.
+    shape while exposing the common Redis Agent Memory runtime filters.
     """
 
     def __init__(self, client: MemoryAPIClient):
         self._client = client
 
     async def add_items(self, items: list[MemoryItem], **kwargs: Any) -> None:
-        """Insert long-term memory items through the Redis Agent Memory Server client."""
+        """Insert long-term memory items through the Redis Agent Memory client."""
         if not items:
             return
 
@@ -171,13 +179,16 @@ class RedisAgentMemoryServerEditor(MemoryEditor):
 
             topics = _normalize_strings(kwargs.get("topics")) or _normalize_strings(item.tags)
             entities = _normalize_strings(_metadata_value(item, "entities", kwargs.get("entities")))
+            session_id = _metadata_value(item, "session_id", kwargs.get("session_id")) or _runtime_context_value(
+                "conversation_id"
+            )
             record = ClientMemoryRecord(
                 text=text,
                 memory_type=_coerce_memory_type(_metadata_value(item, "memory_type", kwargs.get("memory_type"))),
                 topics=topics,
                 entities=entities,
                 user_id=item.user_id,
-                session_id=_metadata_value(item, "session_id", kwargs.get("session_id")),
+                session_id=session_id,
                 namespace=_metadata_value(item, "namespace", kwargs.get("namespace")),
                 event_date=_metadata_value(item, "event_date", kwargs.get("event_date")),
             )
@@ -188,9 +199,9 @@ class RedisAgentMemoryServerEditor(MemoryEditor):
 
     async def search(self, query: str, top_k: int = 5, **kwargs: Any) -> list[MemoryItem]:
         """Search long-term memory and translate results back into NAT MemoryItems."""
-        user_id_filter = kwargs.pop("user_id", None)
+        user_id_filter = kwargs.pop("user_id", None) or _runtime_context_value("user_id")
         if user_id_filter is None:
-            raise ValueError("search() requires user_id in kwargs for Agent Memory Server")
+            raise ValueError("search() requires user_id in kwargs for Redis Agent Memory")
 
         search_limit = int(kwargs.pop("limit", top_k))
         search_kwargs: dict[str, Any] = {
@@ -257,8 +268,10 @@ class RedisAgentMemoryServerEditor(MemoryEditor):
         query = kwargs.pop("query", "")
         batch_size = int(kwargs.pop("batch_size", 100))
         filter_fields = {
-            "user_id": _coerce_exact_filter(kwargs.pop("user_id", None)),
-            "session_id": _coerce_exact_filter(kwargs.pop("session_id", None)),
+            "user_id": _coerce_exact_filter(kwargs.pop("user_id", None) or _runtime_context_value("user_id")),
+            "session_id": _coerce_exact_filter(
+                kwargs.pop("session_id", None) or _runtime_context_value("conversation_id")
+            ),
             "namespace": _coerce_exact_filter(kwargs.pop("namespace", None)),
             "topics": _coerce_any_filter(kwargs.pop("topics", None)),
             "entities": _coerce_any_filter(kwargs.pop("entities", None)),
@@ -288,6 +301,3 @@ class RedisAgentMemoryServerEditor(MemoryEditor):
 
             if len(matched_ids) < batch_size:
                 return
-
-
-AgentMemoryServerEditor = RedisAgentMemoryServerEditor

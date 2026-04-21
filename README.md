@@ -1,73 +1,123 @@
 # nvidia-nat-redis
 
-`nvidia-nat-redis` is a standalone Redis-owned plugin for
+Redis Agent Memory integrations for
 [NVIDIA NeMo Agent Toolkit](https://github.com/NVIDIA/NeMo-Agent-Toolkit).
-It registers a NAT memory backend for
-[Redis Agent Memory Server](https://github.com/redis/agent-memory-server).
 
-## Prerequisites
+This standalone plugin now exposes two first-class NAT surfaces:
 
-- Python 3.11-3.13
-- `uv`
-- A running Redis Agent Memory Server instance
-- A NAT-compatible LLM provider and credentials for your chosen example
+1. `_type: redis_agent_memory_backend`
+   Redis Agent Memory as a NAT `MemoryEditor` long-term memory backend.
+2. `_type: redis_agent_memory_auto_memory`
+   A native Redis Agent Memory wrapper that uses working memory plus
+   `memory_prompt` hydration on every turn.
 
-The included example expects Redis Agent Memory Server to be reachable at
-`http://localhost:8000`.
+Compatibility-sensitive identifiers stay unchanged:
+
+- Python package: `nvidia-nat-redis`
+- module namespace: `nvidia_nat_redis`
+- plugin entry point namespace: `nat.components`
 
 ## Install
 
 ```bash
-pip install "nvidia-nat[langchain]" "nvidia-nat-redis"
+pip install "nvidia-nat-redis"
 ```
 
-Install from source:
+For local development in this repo:
 
 ```bash
 git clone https://github.com/redis-developer/nvidia-nat-redis.git
 cd nvidia-nat-redis
-uv sync --no-sources --group dev --extra test
-```
-
-If you are developing this plugin next to a sibling `NeMo-Agent-Toolkit`
-checkout, you can use the local editable NAT packages defined in
-`tool.uv.sources`:
-
-```bash
 uv sync --group dev --extra test
 ```
 
-You can also use the provided `Makefile`:
+If you want a dependency-resolved install without sibling source overrides:
 
 ```bash
-make setup
+uv sync --no-sources --group dev --extra test
 ```
 
-## Usage
+Local development expects a sibling `../NeMo-Agent-Toolkit` checkout because
+`tool.uv.sources` points at NAT source packages directly.
 
-The plugin exposes `_type: agent_memory_server`.
+## Choose A Surface
+
+- Use `_type: redis_agent_memory_backend` when your workflow already uses NAT memory tools and you want Redis Agent Memory behind the standard `MemoryEditor` contract.
+- Use `_type: redis_agent_memory_auto_memory` when you want Redis Agent Memory to own working-memory continuity, prompt hydration, and turn capture on every request.
+
+## Integration Modes
+
+### Direct Long-Term Memory Backend
+
+Use `_type: redis_agent_memory_backend` when you want Redis Agent Memory behind NAT's
+generic memory tools such as `get_memory` and `add_memory`.
 
 ```yaml
 memory:
   redis_memory:
-    _type: agent_memory_server
+    _type: redis_agent_memory_backend
     base_url: http://localhost:8000
     default_namespace: nat
 ```
 
-For the example workflow:
+### Native Redis Agent Memory Wrapper
 
-```bash
-export NVIDIA_API_KEY=<YOUR_NVIDIA_API_KEY>
-uv run nat run --config_file examples/tool_memory/configs/config.yml
+Use `_type: redis_agent_memory_auto_memory` when you want:
+
+- working-memory continuity by `conversation_id`
+- automatic `memory_prompt` hydration
+- completed turns appended back into Redis Agent Memory
+- background promotion into long-term memory
+
+```yaml
+workflow:
+  _type: redis_agent_memory_auto_memory
+  inner_agent_name: assistant_chat
+  memory_name: redis_memory
+
+  memory_prompt:
+    optimize_query: false
+    long_term_search:
+      limit: 5
+
+  working_memory:
+    namespace: nat
+    ttl_seconds: 86400
+    long_term_memory_strategy:
+      strategy: discrete
 ```
 
-See [docs/configuration.md](docs/configuration.md) and
-[examples/tool_memory/README.md](examples/tool_memory/README.md).
+The wrapper resolves runtime identity from NAT context:
+
+- `user_id` -> Redis Agent Memory `user_id`
+- `conversation_id` -> Redis Agent Memory `session_id`
+
+## Examples
+
+- [Agent auto-memory example](examples/agent_auto_memory/README.md)
+- [Tool-based long-term memory example](examples/tool_based_memory/README.md)
+
+Both example directories are self-contained and include their own `.env.example`,
+`compose.yml`, NAT config, and usage README. Each example can be brought up and
+down without touching the other.
+
+## Configuration
+
+- [Configuration reference](docs/configuration.md)
+- [Redis Agent Memory quick start](https://redis.github.io/agent-memory-server/quick-start/)
+
+## Local Compatibility
+
+One caveat remains: this standalone package and NVIDIA's first-party Redis
+package currently share the `nvidia-nat-redis` distribution name. For local
+testing, prefer an environment that installs this editable repo plus the NAT
+packages you need, rather than mixing it with NVIDIA's first-party Redis
+package in the same environment.
 
 ## Development
 
 ```bash
+make setup-local
 make lint
 make test
 make validate
@@ -75,4 +125,4 @@ make build
 make check
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the basic development workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
