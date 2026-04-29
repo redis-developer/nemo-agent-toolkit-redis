@@ -11,16 +11,11 @@ This standalone plugin exposes two NAT surfaces:
    A native Redis Agent Memory wrapper that uses working memory plus
    `memory_prompt` hydration on every turn.
 
-Compatibility-sensitive identifiers stay unchanged:
-
-- Python package: `nvidia-nat-redis`
-- module namespace: `nvidia_nat_redis`
-- plugin entry point namespace: `nat.components`
 
 ## Install
 
 ```bash
-pip install "nvidia-nat-redis"
+pip install nvidia-nat-redis
 ```
 
 For local development in this repo:
@@ -43,7 +38,7 @@ Local development expects a sibling `../NeMo-Agent-Toolkit` checkout because
 ## Choose A Surface
 
 - Use `_type: redis_agent_memory_backend` when your workflow already uses NAT memory tools and you want Redis Agent Memory behind the standard `MemoryEditor` contract.
-- Use `_type: redis_agent_memory_auto_memory` when you want Redis Agent Memory to own working-memory continuity, prompt hydration, and turn capture on every request.
+- Use `_type: redis_agent_memory_auto_memory` when you want Redis Agent Memory to own working-memory continuity, prompt hydration, and turn capture on every request. This exposes the richness of Redis Agent Memory in it's fullest form.
 
 ## Integration Modes
 
@@ -106,13 +101,6 @@ README.
 - [Configuration reference](docs/configuration.md)
 - [Redis Agent Memory quick start](https://redis.github.io/agent-memory-server/quick-start/)
 
-## Local Compatibility
-
-One caveat remains: this standalone package and NVIDIA's first-party Redis
-package currently share the `nvidia-nat-redis` distribution name. For local
-testing, prefer an environment that installs this editable repo plus the NAT
-packages you need, rather than mixing it with NVIDIA's first-party Redis
-package in the same environment.
 
 ## Development
 
@@ -130,16 +118,6 @@ Server containers:
 
 ```bash
 make test-integration
-```
-
-The OpenAI-backed lane is separate because it requires a real API key. If you
-already have a shell-compatible env file, export it before invoking the target:
-
-```bash
-set -a
-source ../agent-memory-server/.env
-set +a
-make test-integration-api
 ```
 
 The example Compose files are intended for local development. They bind Redis
