@@ -1,4 +1,4 @@
-.PHONY: setup setup-local lint test validate build check clean
+.PHONY: setup setup-local lint test test-integration test-integration-api validate build check clean
 
 setup:
 	uv sync --no-sources --group dev --extra test
@@ -11,6 +11,12 @@ lint:
 
 test:
 	uv run python -m pytest
+
+test-integration:
+	uv run python -m pytest tests/integration --run-integration
+
+test-integration-api:
+	uv run python -m pytest tests/integration --run-integration --run-api-tests
 
 validate:
 	uv run nat validate --config_file examples/tool_based_memory/configs/config.yml
@@ -26,6 +32,7 @@ check: lint test validate
 clean:
 	rm -rf build dist .pytest_cache .ruff_cache
 	rm -rf tests/__pycache__ src/*.egg-info src/nvidia_nat_redis/__pycache__
+	rm -rf tests/integration/__pycache__
 	rm -rf src/nvidia_nat_redis/redis_agent_memory/__pycache__
 	rm -rf src/nvidia_nat_redis/redis_agent_memory/auto_memory/__pycache__
 	rm -rf examples/agent_auto_memory/__pycache__ examples/tool_based_memory/__pycache__

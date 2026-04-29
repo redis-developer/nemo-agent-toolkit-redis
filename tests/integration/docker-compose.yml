@@ -1,0 +1,28 @@
+services:
+  redis:
+    image: "${REDIS_STACK_IMAGE:-redis/redis-stack:7.4.0-v8}"
+    ports:
+      - "6379"
+    environment:
+      - "REDIS_ARGS=--save '' --appendonly no"
+    labels:
+      - "com.docker.compose.publishers=redis,6379,6379"
+
+  agent-memory-server:
+    image: "${AGENT_MEMORY_SERVER_IMAGE:-redislabs/agent-memory-server:0.14.0}"
+    depends_on:
+      - redis
+    environment:
+      DISABLE_AUTH: "true"
+      REDIS_URL: "redis://redis:6379"
+      LONG_TERM_MEMORY: "true"
+      GENERATION_MODEL: "${GENERATION_MODEL:-gpt-4o-mini}"
+      EMBEDDING_MODEL: "${EMBEDDING_MODEL:-text-embedding-3-small}"
+      ENABLE_DISCRETE_MEMORY_EXTRACTION: "${ENABLE_DISCRETE_MEMORY_EXTRACTION:-false}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+    command: ["agent-memory", "api", "--host", "0.0.0.0", "--port", "8000", "--task-backend=asyncio"]
+    ports:
+      - "8000"
+    labels:
+      - "com.docker.compose.publishers=agent-memory-server,8000,8000"

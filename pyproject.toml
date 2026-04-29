@@ -28,6 +28,7 @@ dependencies = [
 test = [
   "pytest>=8.3,<9.0",
   "pytest-asyncio>=0.24,<1.0",
+  "testcontainers>=4.3.1,<5",
 ]
 
 [project.urls]

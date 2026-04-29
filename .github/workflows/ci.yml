@@ -58,6 +58,44 @@ jobs:
       - name: Check native-wrapper runner CLI
         run: uv run python examples/agent_auto_memory/run_agent.py --help
 
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync
+        run: uv sync --no-sources --group dev --extra test
+      - name: Docker Info
+        run: docker info
+      - name: Integration Tests
+        run: uv run python -m pytest tests/integration --run-integration
+
+  integration-api:
+    runs-on: ubuntu-latest
+    env:
+      NAT_OPENAI_MODEL: ${{ vars.NAT_OPENAI_MODEL || 'gpt-4o-mini' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - name: Sync
+        run: uv sync --no-sources --group dev --extra test
+      - name: OpenAI-Backed Integration Tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY is not configured; skipping API-backed integration tests."
+            exit 0
+          fi
+          docker info
+          uv run python -m pytest tests/integration --run-integration --run-api-tests
+
   build:
     runs-on: ubuntu-latest
     steps:

@@ -1,8 +1,8 @@
 # Tool-Based Memory Example
 
-This example keeps memory explicit. The agent uses NAT's `get_memory` and
-`add_memory` tools, while Redis Agent Memory provides the backend long-term
-memory storage.
+This example keeps memory explicit. A NAT `react_agent` decides when to call
+`get_memory` and `add_memory`; Redis Agent Memory stores and searches the
+long-term memories behind those tools.
 
 ## Install
 
@@ -27,13 +27,17 @@ uv sync --group dev --extra test
 cp examples/tool_based_memory/.env.example examples/tool_based_memory/.env
 ```
 
-Edit `examples/tool_based_memory/.env` with the credentials you want to use:
+Edit `examples/tool_based_memory/.env`:
 
 - `OPENAI_API_KEY` for NAT's OpenAI LLM and Redis Agent Memory extraction
 - `REDIS_AGENT_MEMORY_URL` and `REDIS_AGENT_MEMORY_NAMESPACE` for the memory server
 - `HOST_REDIS_PORT` and `HOST_REDIS_AGENT_MEMORY_PORT` if the default local ports are already occupied
+- `REDIS_STACK_IMAGE` and `AGENT_MEMORY_SERVER_IMAGE` if you need to override the tested image tags
 
 ## Start Services
+
+Compose starts Redis Stack and Agent Memory Server for local development. Both
+ports bind to `127.0.0.1`, and AMS auth is disabled.
 
 ```bash
 docker compose \
@@ -83,5 +87,5 @@ docker compose \
 
 ## Notes
 
-- This example is self-contained: its own `.env`, Compose file, config, README, and runner live in `examples/tool_based_memory/`.
-- Tool-based memory depends on the LLM deciding to call memory tools. The automatic wrapper example is the stronger fit if you want guaranteed capture and retrieval on every turn.
+- Tool-based memory depends on the LLM choosing the memory tools.
+- Use `agent_auto_memory` when every turn should be captured and hydrated automatically.

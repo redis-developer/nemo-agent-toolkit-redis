@@ -3,7 +3,7 @@
 Redis Agent Memory integrations for
 [NVIDIA NeMo Agent Toolkit](https://github.com/NVIDIA/NeMo-Agent-Toolkit).
 
-This standalone plugin now exposes two first-class NAT surfaces:
+This standalone plugin exposes two NAT surfaces:
 
 1. `_type: redis_agent_memory_backend`
    Redis Agent Memory as a NAT `MemoryEditor` long-term memory backend.
@@ -97,9 +97,9 @@ The wrapper resolves runtime identity from NAT context:
 - [Agent auto-memory example](examples/agent_auto_memory/README.md)
 - [Tool-based long-term memory example](examples/tool_based_memory/README.md)
 
-Both example directories are self-contained and include their own `.env.example`,
-`compose.yml`, NAT config, and usage README. Each example can be brought up and
-down without touching the other.
+Both example directories are self-contained. Each includes a `.env.example`,
+localhost-bound Docker Compose services, a NAT config, a runner, and a short
+README.
 
 ## Configuration
 
@@ -124,5 +124,25 @@ make validate
 make build
 make check
 ```
+
+Integration tests are opt-in because they start real Redis and Agent Memory
+Server containers:
+
+```bash
+make test-integration
+```
+
+The OpenAI-backed lane is separate because it requires a real API key. If you
+already have a shell-compatible env file, export it before invoking the target:
+
+```bash
+set -a
+source ../agent-memory-server/.env
+set +a
+make test-integration-api
+```
+
+The example Compose files are intended for local development. They bind Redis
+and AMS to `127.0.0.1` and run AMS with auth disabled.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -1,10 +1,8 @@
 # Redis Agent Memory Native Wrapper Example
 
-This example uses the package's native Redis Agent Memory workflow:
-`_type: redis_agent_memory_auto_memory`.
-
-Instead of routing memory through NAT's generic `MemoryEditor` wrapper, this
-workflow lets Redis Agent Memory manage:
+This example uses the native Redis Agent Memory workflow:
+`_type: redis_agent_memory_auto_memory`. It wraps a chat function and lets Redis
+Agent Memory manage:
 
 - session-scoped working memory
 - `memory_prompt` hydration before each turn
@@ -38,8 +36,12 @@ The example expects:
 - `REDIS_AGENT_MEMORY_URL`
 - `REDIS_AGENT_MEMORY_NAMESPACE`
 - `HOST_REDIS_PORT` and `HOST_REDIS_AGENT_MEMORY_PORT` if the default local ports are already occupied
+- `REDIS_STACK_IMAGE` and `AGENT_MEMORY_SERVER_IMAGE` if you need to override the tested image tags
 
 ## Start Services
+
+Compose starts Redis Stack and Agent Memory Server for local development. Both
+ports bind to `127.0.0.1`, and AMS auth is disabled.
 
 ```bash
 docker compose \
@@ -85,7 +87,6 @@ docker compose \
 
 ## Notes
 
-- This example is self-contained: its own `.env`, Compose file, config, README, and runner live in `examples/agent_auto_memory/`.
 - The memory backend config still uses `_type: redis_agent_memory_backend`; that is the
   long-term memory surface shared by both examples.
 - The workflow wrapper is the differentiated path when you want automatic

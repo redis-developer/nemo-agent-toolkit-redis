@@ -50,7 +50,7 @@ class RedisAgentMemoryLongTermSearchConfig(BaseModel):
 
     @field_validator("namespace", mode="before")
     @classmethod
-    def _normalize_namespace(cls, value: str | None) -> str | None:
+    def _normalize_namespace(_cls, value: str | None) -> str | None:
         return _strip_optional(value)
 
     def to_client_payload(self) -> dict[str, Any]:
@@ -111,7 +111,7 @@ class RedisAgentMemoryWorkingMemoryConfig(BaseModel):
 
     @field_validator("namespace", "model_name", mode="before")
     @classmethod
-    def _normalize_optional_strings(cls, value: str | None) -> str | None:
+    def _normalize_optional_strings(_cls, value: str | None) -> str | None:
         return _strip_optional(value)
 
 
@@ -139,7 +139,7 @@ class RedisAgentMemoryAutoMemoryConfig(FunctionBaseConfig, name="redis_agent_mem
 
     @field_validator("default_user_id", "default_session_id", mode="before")
     @classmethod
-    def _normalize_required_strings(cls, value: str) -> str:
+    def _normalize_required_strings(_cls, value: str) -> str:
         normalized = _strip_optional(value)
         if normalized is None:
             raise ValueError("value must not be empty")
