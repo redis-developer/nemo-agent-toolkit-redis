@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, Redis
 # SPDX-License-Identifier: Apache-2.0
 
+"""Public Redis Agent Memory integration classes exported by this NAT plugin."""
+
 from .auto_memory import RedisAgentMemoryAutoMemoryConfig, RedisAgentMemoryAutoMemoryService
 from .editor import RedisAgentMemoryEditor
 from .memory import RedisAgentMemoryBackendConfig

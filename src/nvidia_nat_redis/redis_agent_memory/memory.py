@@ -1,12 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, Redis
 # SPDX-License-Identifier: Apache-2.0
 
+"""NAT memory backend registration for Redis Agent Memory long-term memory."""
+
 from __future__ import annotations
+
+from collections.abc import AsyncGenerator
 
 from nat.builder.builder import Builder
 from nat.cli.register_workflow import register_memory
 from nat.data_models.memory import MemoryBaseConfig
 from nat.data_models.retry_mixin import RetryMixin
+from nat.memory.interfaces import MemoryEditor
 from nat.utils.exception_handlers.automatic_retries import patch_with_retry
 from pydantic import Field
 
@@ -15,7 +20,15 @@ from .editor import RedisAgentMemoryEditor
 
 
 class RedisAgentMemoryBackendConfig(MemoryBaseConfig, RetryMixin, name="redis_agent_memory_backend"):
-    """Configuration for Redis Agent Memory as a NAT memory backend."""
+    """
+    Configure Redis Agent Memory as a NAT ``MemoryEditor`` backend.
+
+    This is the config model behind ``_type: redis_agent_memory_backend`` in a
+    NAT ``memory`` section. NAT uses it to create a Redis Agent Memory client and
+    expose long-term memory operations through :class:`RedisAgentMemoryEditor`.
+    The retry fields inherited from ``RetryMixin`` are applied to the editor
+    methods when ``do_auto_retry`` is enabled.
+    """
 
     base_url: str = Field(default="http://localhost:8000", description="Redis Agent Memory base URL.")
     default_namespace: str = Field(default="nat", description="Default namespace to use for memory operations.")
@@ -29,7 +42,18 @@ class RedisAgentMemoryBackendConfig(MemoryBaseConfig, RetryMixin, name="redis_ag
 
 
 @register_memory(config_type=RedisAgentMemoryBackendConfig)
-async def redis_agent_memory_backend_client(config: RedisAgentMemoryBackendConfig, _builder: Builder):
+async def redis_agent_memory_backend_client(
+    config: RedisAgentMemoryBackendConfig,
+    _builder: Builder,
+) -> AsyncGenerator[MemoryEditor, None]:
+    """
+    Yield a NAT ``MemoryEditor`` connected to Redis Agent Memory.
+
+    The registered component owns the underlying HTTP client lifecycle for the
+    duration of the NAT memory context. Consumers receive a
+    :class:`RedisAgentMemoryEditor`; the client is closed when NAT exits the
+    context manager.
+    """
     client = await create_agent_memory_client(config)
 
     try:

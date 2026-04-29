@@ -1,27 +1,33 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, Redis
 # SPDX-License-Identifier: Apache-2.0
 
+"""Pydantic config models for the Redis Agent Memory NAT wrapper."""
+
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from nat.data_models.component_ref import FunctionRef, MemoryRef
 from nat.data_models.function import FunctionBaseConfig
 from pydantic import BaseModel, Field, PositiveInt, field_validator
 
+from .._text import normalize_optional_string
+
+if TYPE_CHECKING:
+    from agent_memory_client.models import MemoryStrategyConfig
+
 MemoryTypeLiteral = Literal["episodic", "message", "semantic"]
 MemoryStrategyLiteral = Literal["custom", "discrete", "preferences", "summary"]
 
 
-def _strip_optional(value: str | None) -> str | None:
-    if value is None:
-        return None
-    value = value.strip()
-    return value or None
-
-
 class RedisAgentMemoryRecencyConfig(BaseModel):
-    """Client-side recency re-ranking options forwarded to AMS search."""
+    """
+    Recency ranking options forwarded to Redis Agent Memory search.
+
+    Set this under ``memory_prompt.long_term_search.recency`` to tune how Redis
+    Agent Memory balances semantic similarity with freshness and novelty when
+    hydrating prompts.
+    """
 
     recency_boost: bool | None = None
     semantic_weight: float | None = None
@@ -34,13 +40,25 @@ class RedisAgentMemoryRecencyConfig(BaseModel):
 
 
 class RedisAgentMemoryLongTermSearchConfig(BaseModel):
-    """Typed subset of AMS long-term memory prompt search settings."""
+    """
+    Long-term memory search settings used during prompt hydration.
+
+    The wrapper converts plain YAML values into the filter payload expected by
+    Redis Agent Memory ``memory_prompt``. Namespace and memory type are exact
+    filters; topics and entities are ``any`` filters.
+    """
 
     limit: PositiveInt = Field(default=5, description="Maximum long-term memories to retrieve per turn.")
     offset: int = Field(default=0, ge=0, description="Search result offset.")
     namespace: str | None = Field(default=None, description="Override namespace filter for long-term search.")
-    topics: list[str] = Field(default_factory=list, description="Topic allowlist matched with AMS any-filter.")
-    entities: list[str] = Field(default_factory=list, description="Entity allowlist matched with AMS any-filter.")
+    topics: list[str] = Field(
+        default_factory=list,
+        description="Topic allowlist matched with a Redis Agent Memory any-filter.",
+    )
+    entities: list[str] = Field(
+        default_factory=list,
+        description="Entity allowlist matched with a Redis Agent Memory any-filter.",
+    )
     memory_type: MemoryTypeLiteral | None = Field(default=None, description="Optional long-term memory type filter.")
     distance_threshold: float | None = Field(default=None, description="Optional semantic distance threshold.")
     recency: RedisAgentMemoryRecencyConfig | None = Field(
@@ -51,9 +69,15 @@ class RedisAgentMemoryLongTermSearchConfig(BaseModel):
     @field_validator("namespace", mode="before")
     @classmethod
     def _normalize_namespace(_cls, value: str | None) -> str | None:
-        return _strip_optional(value)
+        return normalize_optional_string(value)
 
     def to_client_payload(self) -> dict[str, Any]:
+        """
+        Serialize configured search options into a Redis Agent Memory payload.
+
+        Empty optional filters are omitted so the server applies only the
+        constraints explicitly configured for this wrapper.
+        """
         payload: dict[str, Any] = {"limit": self.limit, "offset": self.offset}
 
         if self.namespace is not None:
@@ -73,35 +97,58 @@ class RedisAgentMemoryLongTermSearchConfig(BaseModel):
 
 
 class RedisAgentMemoryPromptConfig(BaseModel):
-    """Settings for AMS memory prompt hydration."""
+    """
+    Settings for Redis Agent Memory ``memory_prompt`` hydration.
+
+    These options control the prompt that is built immediately before the inner
+    NAT chat function is invoked.
+    """
 
     optimize_query: bool = Field(
         default=False,
-        description="Whether AMS should rewrite the query before long-term memory search.",
+        description="Whether Redis Agent Memory should rewrite the query before long-term memory search.",
     )
     long_term_search: RedisAgentMemoryLongTermSearchConfig = Field(default_factory=RedisAgentMemoryLongTermSearchConfig)
 
 
 class RedisAgentMemoryStrategyConfig(BaseModel):
-    """Long-term promotion strategy stored on working memory sessions."""
+    """
+    Long-term promotion strategy stored on Redis Agent Memory sessions.
 
-    strategy: MemoryStrategyLiteral = Field(default="discrete", description="AMS extraction strategy.")
-    config: dict[str, Any] = Field(default_factory=dict, description="Strategy-specific AMS configuration.")
+    Redis Agent Memory uses this strategy to decide how working-memory turns are
+    promoted into long-term memory.
+    """
 
-    def to_client_model(self):
+    strategy: MemoryStrategyLiteral = Field(default="discrete", description="Redis Agent Memory extraction strategy.")
+    config: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Strategy-specific Redis Agent Memory configuration.",
+    )
+
+    def to_client_model(self) -> MemoryStrategyConfig:
+        """Convert the Pydantic config into the generated client model."""
         from agent_memory_client.models import MemoryStrategyConfig
 
         return MemoryStrategyConfig(strategy=self.strategy, config=dict(self.config))
 
 
 class RedisAgentMemoryWorkingMemoryConfig(BaseModel):
-    """Working-memory options applied to native wrapper sessions."""
+    """
+    Working-memory options applied to wrapper-managed sessions.
+
+    ``namespace``, ``model_name``, and ``context_window_max`` are passed to Redis
+    Agent Memory whenever the wrapper creates, loads, hydrates, or appends to a
+    working-memory session.
+    """
 
     namespace: str | None = Field(default=None, description="Namespace for working-memory sessions and prompt lookups.")
-    model_name: str | None = Field(default=None, description="Model name forwarded to AMS token-aware operations.")
+    model_name: str | None = Field(
+        default=None,
+        description="Model name forwarded to Redis Agent Memory token-aware operations.",
+    )
     context_window_max: PositiveInt | None = Field(
         default=None,
-        description="Explicit context window forwarded to AMS token-aware operations.",
+        description="Explicit context window forwarded to Redis Agent Memory token-aware operations.",
     )
     ttl_seconds: PositiveInt | None = Field(
         default=None,
@@ -112,11 +159,19 @@ class RedisAgentMemoryWorkingMemoryConfig(BaseModel):
     @field_validator("namespace", "model_name", mode="before")
     @classmethod
     def _normalize_optional_strings(_cls, value: str | None) -> str | None:
-        return _strip_optional(value)
+        return normalize_optional_string(value)
 
 
 class RedisAgentMemoryAutoMemoryConfig(FunctionBaseConfig, name="redis_agent_memory_auto_memory"):
-    """Native Redis Agent Memory wrapper for automatic prompt hydration and turn capture."""
+    """
+    NAT function config for automatic Redis Agent Memory orchestration.
+
+    This is the config model behind ``_type: redis_agent_memory_auto_memory``.
+    The registered function wraps an inner chat function, resolves NAT runtime
+    ``user_id`` and ``conversation_id`` into Redis Agent Memory identity, calls
+    ``memory_prompt`` to hydrate the prompt, invokes the inner function, and
+    appends the completed user/assistant turn back to working memory.
+    """
 
     description: str = Field(
         default="Redis Agent Memory native wrapper that hydrates prompts from working memory and long-term memory.",
@@ -140,7 +195,7 @@ class RedisAgentMemoryAutoMemoryConfig(FunctionBaseConfig, name="redis_agent_mem
     @field_validator("default_user_id", "default_session_id", mode="before")
     @classmethod
     def _normalize_required_strings(_cls, value: str) -> str:
-        normalized = _strip_optional(value)
+        normalized = normalize_optional_string(value)
         if normalized is None:
             raise ValueError("value must not be empty")
         return normalized

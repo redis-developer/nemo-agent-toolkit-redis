@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, Redis
 # SPDX-License-Identifier: Apache-2.0
 
+"""Runtime orchestration for the Redis Agent Memory automatic NAT wrapper."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -18,17 +20,22 @@ from nat.data_models.api_server import (
 )
 from nat.utils.type_converter import GlobalTypeConverter
 
+from .._text import message_content_to_text, normalize_optional_string
 from .config import RedisAgentMemoryAutoMemoryConfig
 
 
 @dataclass(frozen=True, slots=True)
 class RedisAgentMemoryIdentity:
+    """Resolved Redis Agent Memory identity for one NAT invocation."""
+
     user_id: str
     session_id: str
 
 
 @dataclass(frozen=True, slots=True)
 class RedisAgentMemoryWorkingMemoryOptions:
+    """Working-memory options forwarded on Redis Agent Memory client calls."""
+
     namespace: str | None
     model_name: str | None
     context_window_max: int | None
@@ -36,50 +43,42 @@ class RedisAgentMemoryWorkingMemoryOptions:
     long_term_memory_strategy: Any
 
 
-def _strip(value: str | None) -> str | None:
-    if value is None:
-        return None
-    value = value.strip()
-    return value or None
-
-
-def _message_content_to_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts: list[str] = []
-        for item in content:
-            if hasattr(item, "model_dump"):
-                item = item.model_dump(mode="json")
-            if isinstance(item, dict) and item.get("type") == "text" and item.get("text"):
-                parts.append(str(item["text"]))
-            elif item:
-                parts.append(str(item))
-        return "\n".join(part for part in parts if part).strip()
-    if isinstance(content, dict) and content.get("type") == "text" and content.get("text"):
-        return str(content["text"]).strip()
-    return str(content).strip()
-
-
 def _prompt_message_to_nat_message(raw_message: Any) -> Message:
     if hasattr(raw_message, "model_dump"):
         raw_message = raw_message.model_dump(mode="json")
 
     if not isinstance(raw_message, dict):
-        raise TypeError(f"Expected AMS memory_prompt message dict, got {type(raw_message)!r}")
+        raise TypeError(f"Expected Redis Agent Memory memory_prompt message dict, got {type(raw_message)!r}")
 
     role_value = raw_message.get("role", UserMessageContentRoleType.ASSISTANT)
     role = UserMessageContentRoleType(role_value)
-    content = _message_content_to_text(raw_message.get("content", ""))
+    content = message_content_to_text(raw_message.get("content", ""))
     return Message(role=role, content=content)
 
 
 def _message_signature(message: Message) -> tuple[UserMessageContentRoleType, str]:
-    return message.role, _message_content_to_text(message.content)
+    return message.role, message_content_to_text(message.content)
+
+
+def _partition_system_messages(messages: list[Message]) -> tuple[list[Message], list[Message]]:
+    system_messages = [message for message in messages if message.role == UserMessageContentRoleType.SYSTEM]
+    conversation_messages = [message for message in messages if message.role != UserMessageContentRoleType.SYSTEM]
+    return system_messages, conversation_messages
+
+
+def _split_prompt_history(
+    prompt_messages: list[Message],
+    query: str,
+    fallback_final_user_message: Message,
+) -> tuple[list[Message], Message]:
+    if prompt_messages and _message_signature(prompt_messages[-1]) == (UserMessageContentRoleType.USER, query):
+        return prompt_messages[:-1], prompt_messages[-1]
+
+    return prompt_messages, fallback_final_user_message
 
 
 def _merge_message_history(base_messages: list[Message], extra_messages: list[Message]) -> list[Message]:
-    # Preserve caller-supplied turns without replaying overlapping history already returned by AMS.
+    # Preserve caller-supplied turns without replaying overlapping history already returned by Redis Agent Memory.
     max_overlap = min(len(base_messages), len(extra_messages))
     for overlap_size in range(max_overlap, 0, -1):
         base_overlap = [_message_signature(message) for message in base_messages[-overlap_size:]]
@@ -91,17 +90,34 @@ def _merge_message_history(base_messages: list[Message], extra_messages: list[Me
 
 
 class RedisAgentMemoryAutoMemoryService:
-    """Redis Agent Memory orchestration behind the NAT-native wrapper."""
+    """
+    Orchestrate Redis Agent Memory around a NAT chat function.
+
+    The service is the runtime implementation behind
+    ``_type: redis_agent_memory_auto_memory``. Each invocation loads or creates
+    a Redis Agent Memory working-memory session, asks Redis Agent Memory to
+    build a hydrated prompt, invokes the configured inner NAT function, and
+    appends the completed turn back into working memory.
+    """
 
     def __init__(self, client: Any, config: RedisAgentMemoryAutoMemoryConfig):
+        """Create the service with a Redis Agent Memory client and wrapper config."""
         self._client = client
         self._config = config
 
     def resolve_identity(self, context: Context | None = None) -> RedisAgentMemoryIdentity:
+        """
+        Resolve Redis Agent Memory ``user_id`` and ``session_id``.
+
+        NAT ``user_id`` maps directly to Redis Agent Memory ``user_id``. NAT
+        ``conversation_id`` maps to Redis Agent Memory ``session_id`` so a
+        stable NAT conversation gets stable working memory. Configured defaults
+        are used only when the runtime context does not provide a value.
+        """
         context = context or Context.get()
 
-        user_id = _strip(context.user_id) or self._config.default_user_id
-        session_id = _strip(context.conversation_id) or self._config.default_session_id
+        user_id = normalize_optional_string(context.user_id) or self._config.default_user_id
+        session_id = normalize_optional_string(context.conversation_id) or self._config.default_session_id
 
         if not user_id or not session_id:
             raise ValueError("Redis Agent Memory wrapper requires a user_id and session_id.")
@@ -109,6 +125,7 @@ class RedisAgentMemoryAutoMemoryService:
         return RedisAgentMemoryIdentity(user_id=user_id, session_id=session_id)
 
     def resolve_working_memory_options(self) -> RedisAgentMemoryWorkingMemoryOptions:
+        """Resolve wrapper config into options reused across working-memory calls."""
         working_memory = self._config.working_memory
         return RedisAgentMemoryWorkingMemoryOptions(
             namespace=working_memory.namespace,
@@ -119,6 +136,14 @@ class RedisAgentMemoryAutoMemoryService:
         )
 
     async def run(self, inner_agent: Function, value: ChatRequestOrMessage) -> ChatResponse | str:
+        """
+        Run one memory-managed chat turn through the wrapped NAT function.
+
+        The incoming value is converted to ``ChatRequest`` for prompt hydration.
+        String inputs still return strings when possible, preserving the NAT
+        function interface expected by callers that invoke the wrapper with a
+        simple message.
+        """
         converter = GlobalTypeConverter.get()
         request = converter.convert(value, to_type=ChatRequest)
         identity = self.resolve_identity()
@@ -147,11 +172,17 @@ class RedisAgentMemoryAutoMemoryService:
             return converter.convert(assistant_text, to_type=ChatResponse)
 
     def extract_user_query(self, request: ChatRequest) -> str:
+        """
+        Return the final user message text from a chat request.
+
+        Redis Agent Memory prompt hydration is query-driven, so the wrapper
+        requires the final message to be a non-empty user turn.
+        """
         message = request.messages[-1]
         if message.role != UserMessageContentRoleType.USER:
             raise ValueError("Redis Agent Memory wrapper requires the final input message to have role='user'.")
 
-        query = _message_content_to_text(message.content)
+        query = message_content_to_text(message.content)
         if not query:
             raise ValueError("Redis Agent Memory wrapper requires a non-empty user message.")
 
@@ -164,6 +195,15 @@ class RedisAgentMemoryAutoMemoryService:
         options: RedisAgentMemoryWorkingMemoryOptions,
         query: str,
     ) -> list[Message]:
+        """
+        Build the request messages passed to the inner NAT function.
+
+        The Redis Agent Memory ``memory_prompt`` response may include system
+        memory context, remembered conversation history, and the current user
+        query. Caller-supplied system messages are preserved first, prompt
+        system messages are appended after them, overlapping conversation
+        history is deduplicated, and the final user message remains last.
+        """
         prompt = await self._client.memory_prompt(
             query=query,
             session_id=identity.session_id,
@@ -177,26 +217,9 @@ class RedisAgentMemoryAutoMemoryService:
 
         prompt_messages = [_prompt_message_to_nat_message(message) for message in prompt.get("messages", [])]
         original_history = original_messages[:-1]
-        original_system_messages = [
-            message for message in original_history if message.role == UserMessageContentRoleType.SYSTEM
-        ]
-        original_conversation_history = [
-            message for message in original_history if message.role != UserMessageContentRoleType.SYSTEM
-        ]
-
-        if prompt_messages and _message_signature(prompt_messages[-1]) == (UserMessageContentRoleType.USER, query):
-            prompt_history = prompt_messages[:-1]
-            final_user_message = prompt_messages[-1]
-        else:
-            prompt_history = prompt_messages
-            final_user_message = original_messages[-1]
-
-        prompt_system_messages = [
-            message for message in prompt_history if message.role == UserMessageContentRoleType.SYSTEM
-        ]
-        prompt_conversation_history = [
-            message for message in prompt_history if message.role != UserMessageContentRoleType.SYSTEM
-        ]
+        original_system_messages, original_conversation_history = _partition_system_messages(original_history)
+        prompt_history, final_user_message = _split_prompt_history(prompt_messages, query, original_messages[-1])
+        prompt_system_messages, prompt_conversation_history = _partition_system_messages(prompt_history)
         conversation_history = _merge_message_history(prompt_conversation_history, original_conversation_history)
 
         return original_system_messages + prompt_system_messages + conversation_history + [final_user_message]
@@ -206,6 +229,13 @@ class RedisAgentMemoryAutoMemoryService:
         identity: RedisAgentMemoryIdentity,
         options: RedisAgentMemoryWorkingMemoryOptions,
     ) -> Any:
+        """
+        Create or load the Redis Agent Memory working-memory session.
+
+        When a new session is created and ``ttl_seconds`` is configured, the
+        wrapper persists that TTL with a follow-up update because Redis Agent
+        Memory creation returns the complete session model.
+        """
         created, memory = await self._client.get_or_create_working_memory(
             session_id=identity.session_id,
             user_id=identity.user_id,
@@ -233,6 +263,12 @@ class RedisAgentMemoryAutoMemoryService:
         user_text: str,
         assistant_text: str,
     ) -> None:
+        """
+        Append the completed user and assistant messages to working memory.
+
+        Redis Agent Memory can later use the stored turn for prompt hydration
+        and long-term memory promotion according to the configured strategy.
+        """
         from agent_memory_client.models import MemoryMessage
 
         now = datetime.now(UTC)
@@ -250,6 +286,12 @@ class RedisAgentMemoryAutoMemoryService:
         )
 
     def extract_assistant_text(self, response: Any) -> str:
+        """
+        Convert an inner-agent response into text for working-memory append.
+
+        The method first asks NAT's global converter for a string and then falls
+        back through common chat response shapes used by NAT and LLM clients.
+        """
         try:
             return GlobalTypeConverter.get().convert(response, to_type=str)
         except Exception:
@@ -259,7 +301,7 @@ class RedisAgentMemoryAutoMemoryService:
                 choice = response.choices[0]
                 message = getattr(choice, "message", None)
                 content = getattr(message, "content", None)
-                return _message_content_to_text(content)
+                return message_content_to_text(content)
             if hasattr(response, "output"):
                 return str(response.output)
             if hasattr(response, "value") and response.value is not None:

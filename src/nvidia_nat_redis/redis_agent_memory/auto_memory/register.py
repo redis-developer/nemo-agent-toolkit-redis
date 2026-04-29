@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, Redis
 # SPDX-License-Identifier: Apache-2.0
 
+"""NAT function registration for the Redis Agent Memory automatic wrapper."""
+
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
@@ -18,6 +20,7 @@ from .service import RedisAgentMemoryAutoMemoryService
 
 
 def _validate_inner_agent_input_schema(input_schema: type) -> None:
+    """Ensure the wrapped NAT function can receive the hydrated chat request."""
     try:
         if issubclass(input_schema, (ChatRequest, ChatRequestOrMessage)):
             return
@@ -34,6 +37,16 @@ async def redis_agent_memory_auto_memory(
     config: RedisAgentMemoryAutoMemoryConfig,
     builder: Builder,
 ) -> AsyncGenerator[FunctionInfo, None]:
+    """
+    Yield a NAT function that wraps another chat function with Redis memory.
+
+    NAT calls this factory for ``_type: redis_agent_memory_auto_memory``. The
+    configured ``memory_name`` must reference a
+    :class:`RedisAgentMemoryBackendConfig` so both integration surfaces share
+    one Redis Agent Memory client configuration. The yielded function accepts
+    ``ChatRequestOrMessage`` and returns either ``ChatResponse`` or ``str`` to
+    match NAT's chat workflow conversion behavior.
+    """
     memory_config = builder.get_memory_client_config(config.memory_name)
     if not isinstance(memory_config, RedisAgentMemoryBackendConfig):
         raise ValueError(

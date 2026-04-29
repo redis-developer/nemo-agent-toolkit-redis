@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, Redis
 # SPDX-License-Identifier: Apache-2.0
 
+"""NVIDIA NeMo Agent Toolkit plugin package for Redis Agent Memory."""
+
 from importlib.metadata import PackageNotFoundError, version
 
 try:
