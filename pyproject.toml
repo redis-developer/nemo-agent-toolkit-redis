@@ -56,10 +56,6 @@ git_describe_command = "git describe --long --first-parent"
 managed = true
 package = true
 
-[tool.uv.sources]
-nvidia-nat-core = { path = "../NeMo-Agent-Toolkit/packages/nvidia_nat_core", editable = true }
-nvidia-nat-langchain = { path = "../NeMo-Agent-Toolkit/packages/nvidia_nat_langchain", editable = true }
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

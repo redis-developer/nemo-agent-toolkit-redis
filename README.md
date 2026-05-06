@@ -26,19 +26,10 @@ cd nvidia-nat-redis
 uv sync --group dev --extra test
 ```
 
-If you want a dependency-resolved install without sibling source overrides:
-
-```bash
-uv sync --no-sources --group dev --extra test
-```
-
-Local development expects a sibling `../NeMo-Agent-Toolkit` checkout because
-`tool.uv.sources` points at NAT source packages directly.
-
 ## Choose A Surface
 
 - Use `_type: redis_agent_memory_backend` when your workflow already uses NAT memory tools and you want Redis Agent Memory behind the standard `MemoryEditor` contract.
-- Use `_type: redis_agent_memory_auto_memory` when you want Redis Agent Memory to own working-memory continuity, prompt hydration, and turn capture on every request. This exposes the richness of Redis Agent Memory in it's fullest form.
+- Use `_type: redis_agent_memory_auto_memory` when you want Redis Agent Memory to own working-memory continuity, prompt hydration, and turn capture on every request. This exposes the richness of Redis Agent Memory in its fullest form.
 
 ## Integration Modes
 
@@ -105,7 +96,7 @@ README.
 ## Development
 
 ```bash
-make setup-local
+make setup
 make lint
 make test
 make validate

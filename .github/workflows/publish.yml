@@ -20,7 +20,7 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v6
       - name: Sync
-        run: uv sync --no-sources --group dev --extra test
+        run: uv sync --group dev --extra test
       - name: Verify
         run: make check
       - name: Docker Info
@@ -38,7 +38,7 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v6
       - name: Build
-        run: uv build --no-sources
+        run: uv build
       - uses: actions/upload-artifact@v4
         with:
           name: dist
