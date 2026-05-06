@@ -8,13 +8,6 @@ For a clean standalone environment:
 make setup
 ```
 
-If you are developing next to a sibling `NeMo-Agent-Toolkit` checkout and want
-to use local editable NAT packages:
-
-```bash
-make setup-local
-```
-
 ## Development Workflow
 
 1. Create a branch for your change.

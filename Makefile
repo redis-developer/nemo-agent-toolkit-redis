@@ -1,9 +1,6 @@
-.PHONY: setup setup-local lint test test-integration test-integration-api validate build check clean
+.PHONY: setup lint test test-integration test-integration-api validate build check clean
 
 setup:
-	uv sync --no-sources --group dev --extra test
-
-setup-local:
 	uv sync --group dev --extra test
 
 lint:
@@ -25,7 +22,7 @@ validate:
 	uv run python examples/agent_auto_memory/run_agent.py --help
 
 build:
-	uv build --no-sources
+	uv build
 
 check: lint test validate
 

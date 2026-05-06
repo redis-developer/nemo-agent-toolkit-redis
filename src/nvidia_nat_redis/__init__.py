@@ -7,5 +7,5 @@ from importlib.metadata import PackageNotFoundError, version
 
 try:
     __version__ = version("nvidia-nat-redis")
-except (PackageNotFoundError, TypeError):  # pragma: no cover - local editable installs can have partial metadata
+except PackageNotFoundError:  # pragma: no cover - source-tree usage before installation
     __version__ = "0.0.0"
