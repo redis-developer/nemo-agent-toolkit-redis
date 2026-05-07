@@ -3,13 +3,34 @@
 Redis Agent Memory integrations for
 [NVIDIA NeMo Agent Toolkit](https://github.com/NVIDIA/NeMo-Agent-Toolkit).
 
-This standalone plugin exposes two NAT surfaces:
+This standalone plugin exposes **Redis Agent Memory** integrations and the
+**direct Redis** plugins that used to ship inside
+[NeMo Agent Toolkit](https://github.com/NVIDIA/NeMo-Agent-Toolkit/tree/develop/packages/nvidia_nat_redis).
 
-1. `_type: redis_agent_memory_backend`
-   Redis Agent Memory as a NAT `MemoryEditor` long-term memory backend.
-2. `_type: redis_agent_memory_auto_memory`
-   A native Redis Agent Memory wrapper that uses working memory plus
-   `memory_prompt` hydration on every turn.
+### Redis Agent Memory (full stack)
+
+1. `_type: redis_agent_memory_backend` — Redis Agent Memory as a NAT `MemoryEditor` long-term memory backend.
+2. `_type: redis_agent_memory_auto_memory` — A native Redis Agent Memory wrapper that uses working memory plus `memory_prompt` hydration on every turn.
+
+### Direct Redis (simple in-Redis memory)
+
+Loaded via the `nat_redis` setuptools entry point (same name as the historical
+monorepo package):
+
+- `_type: redis_memory` — Vector search over JSON documents in Redis (RediSearch); requires a workflow `embedder` and Redis Stack (or Redis with search + JSON support).
+- `_type: redis` — NAT object store backed by plain Redis key–value storage.
+
+Use **Redis Agent Memory** when you want the Agent Memory Server feature set.
+Use **`redis_memory`** when you only need a lightweight Redis-native `MemoryEditor`
+without AMS.
+
+### Python imports (same as NeMo)
+
+Direct Redis support is implemented only under **`nat.plugins.redis`** (for example
+`from nat.plugins.redis.redis_editor import RedisEditor`), matching NeMo Agent
+Toolkit. The setuptools entry point **`nat_redis`** loads
+`nat.plugins.redis.register`. Redis Agent Memory code lives under
+**`nvidia_nat_redis.redis_agent_memory`**.
 
 
 ## Install
@@ -30,6 +51,7 @@ uv sync --group dev --extra test
 
 - Use `_type: redis_agent_memory_backend` when your workflow already uses NAT memory tools and you want Redis Agent Memory behind the standard `MemoryEditor` contract.
 - Use `_type: redis_agent_memory_auto_memory` when you want Redis Agent Memory to own working-memory continuity, prompt hydration, and turn capture on every request. This exposes the richness of Redis Agent Memory in its fullest form.
+- Use `_type: redis_memory` when you want the simpler direct-Redis memory from NeMo Agent Toolkit (Redis JSON + vector index, no Agent Memory Server). You must configure an `embedder` reference and run a Redis deployment that supports the search commands used by the plugin.
 
 ## Integration Modes
 
