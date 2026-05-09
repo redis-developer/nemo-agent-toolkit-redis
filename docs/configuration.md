@@ -3,7 +3,12 @@
 This package ships Redis Agent Memory surfaces and direct Redis plugins (migrated
 from the NeMo Agent Toolkit `nvidia_nat_redis` package).
 
-**Redis Agent Memory**
+Redis Agent Memory is a production-ready agent memory layer that extracts and stores
+relevant information and learns over time.
+
+Direct Redis memory provides a more standard semantic memory layer for LLM applications.
+
+**Full Redis Agent Memory auto wrapper**
 
 1. Long-term memory backend: `_type: redis_agent_memory_backend`
 2. Native automatic wrapper: `_type: redis_agent_memory_auto_memory`
