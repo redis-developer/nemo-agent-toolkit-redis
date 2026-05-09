@@ -237,9 +237,15 @@ class RedisEditor(MemoryEditor):
         """
         try:
             pattern = f"{self._key_prefix}:memory:*"
-            keys = await self._client.keys(pattern)
-            if keys:
-                await self._client.delete(*keys)
+            batch_size = 500
+            batch = []
+            async for key in self._client.scan_iter(match=pattern, count=batch_size):
+                batch.append(key)
+                if len(batch) >= batch_size:
+                    await self._client.unlink(*batch)
+                    batch.clear()
+            if batch:
+                await self._client.unlink(*batch)
         except redis_exceptions.ResponseError as e:
             logger.error("Failed to remove items: %s", e)
             raise
