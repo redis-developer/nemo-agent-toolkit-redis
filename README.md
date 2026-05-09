@@ -20,7 +20,7 @@ monorepo package):
 - `_type: redis_memory` — Vector search over JSON documents in Redis (RediSearch); requires a workflow `embedder` and Redis Stack (or Redis with search + JSON support).
 - `_type: redis` — NAT object store backed by plain Redis key–value storage.
 
-Use **Redis Agent Memory** when you want the Agent Memory Server feature set.
+Use **Redis Agent Memory** when you want the Redis Agent Memory feature set.
 Use **`redis_memory`** when you only need a lightweight Redis-native `MemoryEditor`
 without AMS.
 

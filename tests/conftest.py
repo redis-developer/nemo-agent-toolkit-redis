@@ -11,7 +11,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--run-integration",
         action="store_true",
         default=False,
-        help="Run integration tests that start real Redis and Agent Memory Server containers.",
+        help="Run integration tests that start real Redis and Redis Agent Memory containers.",
     )
     parser.addoption(
         "--run-api-tests",
@@ -24,7 +24,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
-        "integration: mark a test as requiring Docker-backed Redis and Agent Memory Server services",
+        "integration: mark a test as requiring Docker-backed Redis and Redis Agent Memory services",
     )
     config.addinivalue_line(
         "markers",
