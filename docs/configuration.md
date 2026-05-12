@@ -1,7 +1,7 @@
 # Configuration
 
-This package ships Redis Agent Memory surfaces and direct Redis plugins (migrated
-from the NeMo Agent Toolkit `nvidia_nat_redis` package).
+This package ships Redis Agent Memory surfaces and direct Redis plugins for the
+NeMo Agent Toolkit.
 
 Redis Agent Memory is a production-ready agent memory layer that extracts and stores
 relevant information and learns over time.
@@ -135,9 +135,7 @@ Wrapper flow:
 ## Direct Redis memory (`redis_memory`)
 
 Use `_type: redis_memory` for the lightweight Redis-backed `MemoryEditor` that
-stores JSON documents and uses RediSearch vector queries. This matches the
-behavior of the standalone
-[`nvidia_nat_redis` package in NeMo Agent Toolkit](https://github.com/NVIDIA/NeMo-Agent-Toolkit/tree/develop/packages/nvidia_nat_redis).
+stores JSON documents and uses RediSearch vector queries.
 
 Requirements:
 
