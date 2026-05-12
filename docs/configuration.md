@@ -1,9 +1,25 @@
 # Configuration
 
-This package ships two Redis Agent Memory surfaces for NAT:
+This package ships Redis Agent Memory surfaces and direct Redis plugins for the
+NeMo Agent Toolkit.
 
-1. A long-term memory backend: `_type: redis_agent_memory_backend`
-2. A native automatic wrapper: `_type: redis_agent_memory_auto_memory`
+Redis Agent Memory is a production-ready agent memory layer that extracts and stores
+relevant information and learns over time.
+
+Direct Redis memory provides a more standard semantic memory layer for LLM applications.
+
+**Full Redis Agent Memory auto wrapper**
+
+1. Long-term memory backend: `_type: redis_agent_memory_backend`
+2. Native automatic wrapper: `_type: redis_agent_memory_auto_memory`
+
+**Direct Redis (entry point `nat_redis` → `nat.plugins.redis.register`)**
+
+3. In-Redis vector memory: `_type: redis_memory`
+4. Object store: `_type: redis`
+
+For Python code, use **`nat.plugins.redis.*`** — the same module layout as NeMo
+Agent Toolkit’s in-tree package.
 
 ## Long-Term Memory Backend
 
@@ -115,6 +131,48 @@ Wrapper flow:
 1. Resolve NAT `user_id` and `conversation_id`.
 2. Create or load Redis Agent Memory working memory for that identity.
 3. Call `memory_prompt(...)`, invoke the inner chat function with the hydrated request, and append the finished turn back into working memory.
+
+## Direct Redis memory (`redis_memory`)
+
+Use `_type: redis_memory` for the lightweight Redis-backed `MemoryEditor` that
+stores JSON documents and uses RediSearch vector queries.
+
+Requirements:
+
+- Redis with **JSON** and **search** (for example Redis Stack), because the implementation creates a JSON index and runs vector KNN queries.
+- A workflow **embedder** instance; `embedder` must reference its name in the workflow configuration.
+
+```yaml
+memory:
+  redis_ltm:
+    _type: redis_memory
+    host: localhost
+    port: 6379
+    db: 0
+    key_prefix: nat
+    embedder: my_openai_embedder
+```
+
+Supported config fields:
+
+- `host`, `port`, `db`, `password` (optional secret), `key_prefix`
+- `embedder`: `EmbedderRef` to a configured embedder (LangChain wrapper)
+
+## Direct Redis object store (`redis`)
+
+Use `_type: redis` for the NAT object store that persists `ObjectStoreItem`
+JSON at keys under `nat/object_store/{bucket_name}/...`, with optional TTL.
+
+```yaml
+object_store:
+  artifacts:
+    _type: redis
+    host: localhost
+    port: 6379
+    db: 0
+    bucket_name: my_bucket
+    ttl: 3600
+```
 
 ## Examples
 

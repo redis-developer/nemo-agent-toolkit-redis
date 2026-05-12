@@ -40,7 +40,7 @@ The example expects:
 
 ## Start Services
 
-Compose starts Redis Stack and Agent Memory Server for local development. Both
+Compose starts Redis Stack and Redis Agent Memory containers for local development. Both
 ports bind to `127.0.0.1`, and AMS auth is disabled.
 
 ```bash
