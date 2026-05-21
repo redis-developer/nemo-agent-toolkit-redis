@@ -50,7 +50,7 @@ Toolkit. The setuptools entry point **`nat_redis`** loads
 ## Install
 
 ```bash
-pip install nvidia-nat-redis
+pip install nemo-agent-toolkit-redis
 ```
 
 For local development in this repo:
