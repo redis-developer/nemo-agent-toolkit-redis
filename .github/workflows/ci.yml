@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: '0 8 * * 1'   # Weekly on Monday — proactively catches new NAT releases
 
 permissions:
   contents: read
@@ -126,3 +128,27 @@ jobs:
         with:
           name: dist
           path: dist/*
+
+  compat:
+    name: NAT compatibility (${{ matrix.nat-core }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nat-core: ["~=1.6.0", "~=1.7.0"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Sync
+        run: uv sync --group dev --extra test
+      - name: Pin nvidia-nat-core version
+        run: uv pip install "nvidia-nat-core${{ matrix.nat-core }}"
+      - name: Validate config
+        run: uv run nat validate --config_file examples/tool_based_memory/configs/config.yml
+      - name: Run tests
+        run: uv run python -m pytest

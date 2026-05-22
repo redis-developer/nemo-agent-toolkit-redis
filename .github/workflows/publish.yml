@@ -109,10 +109,44 @@ jobs:
       - name: Check that package can be built
         run: uv build
 
+  compat:
+    name: NAT compatibility (${{ matrix.nat-core }})
+    runs-on: ubuntu-latest
+    needs: gate
+    if: needs.gate.outputs.should_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        nat-core: ["~=1.6.0", "~=1.7.0"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - name: Install dependencies
+        run: uv sync --group dev --extra test
+      - name: Pin nvidia-nat-core version
+        run: uv pip install "nvidia-nat-core${{ matrix.nat-core }}"
+      - name: Validate config
+        run: uv run nat validate --config_file examples/tool_based_memory/configs/config.yml
+      - name: Run tests
+        run: uv run python -m pytest
+
   release:
     name: Tag and release
     runs-on: ubuntu-latest
-    needs: [gate, canary-build]
+    needs: [gate, canary-build, compat]
     if: needs.gate.outputs.should_release == 'true'
     outputs:
       version: ${{ steps.latest_release.outputs.version }}
