@@ -4,9 +4,9 @@
 """
 Load Redis Agent Memory NAT components for entry-point registration.
 
-This module is imported by ``nat.plugins.redis.register``, which is the
-``nat.components`` entry point target (``nat_redis``). Importing the backend
-and wrapper modules runs their NAT registration decorators.
+Imported by ``nat.plugins.redis.register``, the ``nat.components`` entry point
+target (``nat_redis``). Importing this module runs the NAT registration
+decorators for the Redis Agent Memory backend and auto-memory wrapper.
 """
 
 from . import memory as _memory  # noqa: F401
