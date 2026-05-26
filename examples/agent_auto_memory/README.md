@@ -15,7 +15,7 @@ The inner agent in this example is NAT's `chat_completion` function, so the
 base plugin install is enough:
 
 ```bash
-pip install "nvidia-nat-redis"
+pip install "nemo-agent-toolkit-redis"
 ```
 
 For local development from this repository:
