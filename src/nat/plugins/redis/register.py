@@ -21,3 +21,4 @@
 
 from . import memory
 from . import object_store
+from nvidia_nat_redis.redis_agent_memory import register as _ams_register  # noqa: F401

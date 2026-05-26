@@ -12,7 +12,7 @@ agent package in addition to this plugin.
 For a published install:
 
 ```bash
-pip install "nvidia-nat[langchain]" "nvidia-nat-redis"
+pip install "nvidia-nat[langchain]" "nemo-agent-toolkit-redis"
 ```
 
 For local development from this repository:
