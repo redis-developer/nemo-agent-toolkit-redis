@@ -148,7 +148,9 @@ jobs:
         run: uv sync --group dev --extra test
       - name: Pin nvidia-nat-core version
         run: uv pip install "nvidia-nat-core${{ matrix.nat-core }}"
-      - name: Validate config
+      - name: Validate tool-based-memory config
         run: uv run nat validate --config_file examples/tool_based_memory/configs/config.yml
+      - name: Validate agent-auto-memory config
+        run: uv run nat validate --config_file examples/agent_auto_memory/configs/config.yml
       - name: Run tests
         run: uv run python -m pytest
