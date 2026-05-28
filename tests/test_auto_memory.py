@@ -288,12 +288,15 @@ async def test_register_builds_function_for_chat_request_inner_agents(
         get_function=AsyncMock(return_value=inner_agent),
     )
 
-    with patch(
-        "nvidia_nat_redis.redis_agent_memory.auto_memory.register.create_agent_memory_client",
-        new=AsyncMock(return_value=client),
-    ), patch(
-        "nvidia_nat_redis.redis_agent_memory.auto_memory.service.Context.get",
-        return_value=SimpleNamespace(user_id="runtime-user", conversation_id="runtime-session"),
+    with (
+        patch(
+            "nvidia_nat_redis.redis_agent_memory.auto_memory.register.create_agent_memory_client",
+            new=AsyncMock(return_value=client),
+        ),
+        patch(
+            "nvidia_nat_redis.redis_agent_memory.auto_memory.service.Context.get",
+            return_value=SimpleNamespace(user_id="runtime-user", conversation_id="runtime-session"),
+        ),
     ):
         async with redis_agent_memory_auto_memory(auto_memory_config, builder) as function_info:
             assert isinstance(function_info, FunctionInfo)
@@ -323,15 +326,19 @@ async def test_register_wraps_ams_client_with_retry(
         get_function=AsyncMock(return_value=inner_agent),
     )
 
-    with patch(
-        "nvidia_nat_redis.redis_agent_memory.auto_memory.register.create_agent_memory_client",
-        new=AsyncMock(return_value=client),
-    ), patch(
-        "nvidia_nat_redis.redis_agent_memory.auto_memory.register.patch_with_retry",
-        return_value=retry_client,
-    ) as patch_retry, patch(
-        "nvidia_nat_redis.redis_agent_memory.auto_memory.service.Context.get",
-        return_value=SimpleNamespace(user_id="runtime-user", conversation_id="runtime-session"),
+    with (
+        patch(
+            "nvidia_nat_redis.redis_agent_memory.auto_memory.register.create_agent_memory_client",
+            new=AsyncMock(return_value=client),
+        ),
+        patch(
+            "nvidia_nat_redis.redis_agent_memory.auto_memory.register.patch_with_retry",
+            return_value=retry_client,
+        ) as patch_retry,
+        patch(
+            "nvidia_nat_redis.redis_agent_memory.auto_memory.service.Context.get",
+            return_value=SimpleNamespace(user_id="runtime-user", conversation_id="runtime-session"),
+        ),
     ):
         async with redis_agent_memory_auto_memory(auto_memory_config, builder) as function_info:
             assert await function_info.single_fn(ChatRequestOrMessage(input_message="hello")) == "world"

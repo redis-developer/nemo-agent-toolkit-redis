@@ -49,9 +49,7 @@ async def _wait_for_results(
         if any((result.memory or "").lower().find(expected) >= 0 for result in results):
             return results
         if asyncio.get_running_loop().time() >= deadline:
-            raise AssertionError(
-                f"Timed out waiting for search results containing {expected_substring!r}: {results!r}"
-            )
+            raise AssertionError(f"Timed out waiting for search results containing {expected_substring!r}: {results!r}")
         await asyncio.sleep(1.0)
 
 

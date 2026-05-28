@@ -1589,6 +1589,47 @@ wheels = [
 ]
 
 [[package]]
+name = "nemo-agent-toolkit-redis"
+source = { editable = "." }
+dependencies = [
+    { name = "agent-memory-client" },
+    { name = "langchain-core" },
+    { name = "nvidia-nat-core" },
+    { name = "redis" },
+]
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "testcontainers" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "nvidia-nat-langchain" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "agent-memory-client", specifier = ">=0.14.0,<1.0.0" },
+    { name = "langchain-core", specifier = ">=0.3.0,<2.0.0" },
+    { name = "nvidia-nat-core", specifier = ">=1.5.0,<2.0.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3,<9.0" },
+    { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.24,<1.0" },
+    { name = "redis", specifier = ">=4.3.4,<5.0.0" },
+    { name = "testcontainers", marker = "extra == 'test'", specifier = ">=4.3.1,<5" },
+]
+provides-extras = ["test"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "nvidia-nat-langchain", specifier = ">=1.5.0,<2.0.0" },
+    { name = "ruff", specifier = ">=0.15.0,<0.16.0" },
+]
+
+[[package]]
 name = "nest-asyncio2"
 version = "1.7.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1770,47 +1811,6 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/b4/54c29f536b498cfdfe00ebf4a52bdbc78db9af6b84c011c1c6ed4b647352/nvidia_nat_opentelemetry-1.6.0-py3-none-any.whl", hash = "sha256:5ae11e4acfc08e04bf3040a4cd69241f1c2c096b83061be15ee459d7c7c1b73d", size = 67843, upload-time = "2026-04-10T03:01:14.482Z" },
-]
-
-[[package]]
-name = "nvidia-nat-redis"
-source = { editable = "." }
-dependencies = [
-    { name = "agent-memory-client" },
-    { name = "langchain-core" },
-    { name = "nvidia-nat-core" },
-    { name = "redis" },
-]
-
-[package.optional-dependencies]
-test = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "testcontainers" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "nvidia-nat-langchain" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "agent-memory-client", specifier = ">=0.14.0,<1.0.0" },
-    { name = "langchain-core", specifier = ">=0.3.0,<2.0.0" },
-    { name = "nvidia-nat-core", specifier = ">=1.5.0,<2.0.0" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3,<9.0" },
-    { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.24,<1.0" },
-    { name = "redis", specifier = ">=4.3.4,<5.0.0" },
-    { name = "testcontainers", marker = "extra == 'test'", specifier = ">=4.3.1,<5" },
-]
-provides-extras = ["test"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "nvidia-nat-langchain", specifier = ">=1.5.0,<2.0.0" },
-    { name = "ruff", specifier = ">=0.15.0,<0.16.0" },
 ]
 
 [[package]]

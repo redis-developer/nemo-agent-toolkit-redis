@@ -38,18 +38,20 @@ def create_schema(embedding_dim: int = DEFAULT_DIM):
     """
     logger.info("Creating schema with embedding dimension: %d", embedding_dim)
 
-    embedding_field = VectorField("$.embedding",
-                                  "HNSW",
-                                  {
-                                      "TYPE": "FLOAT32",
-                                      "DIM": embedding_dim,
-                                      "DISTANCE_METRIC": "L2",
-                                      "INITIAL_CAP": 100,
-                                      "M": 16,
-                                      "EF_CONSTRUCTION": 200,
-                                      "EF_RUNTIME": 10
-                                  },
-                                  as_name="embedding")
+    embedding_field = VectorField(
+        "$.embedding",
+        "HNSW",
+        {
+            "TYPE": "FLOAT32",
+            "DIM": embedding_dim,
+            "DISTANCE_METRIC": "L2",
+            "INITIAL_CAP": 100,
+            "M": 16,
+            "EF_CONSTRUCTION": 200,
+            "EF_RUNTIME": 10,
+        },
+        as_name="embedding",
+    )
     logger.info("Created embedding field with dimension %d", embedding_dim)
 
     schema = (
@@ -58,7 +60,8 @@ def create_schema(embedding_dim: int = DEFAULT_DIM):
         TextField("$.user_id", as_name="user_id"),
         TagField("$.tags[*]", as_name="tags"),
         TextField("$.memory", as_name="memory"),
-        embedding_field)
+        embedding_field,
+    )
 
     # Log the schema details
     logger.info("Schema fields:")
@@ -84,7 +87,7 @@ async def ensure_index_exists(client: redis.Redis, key_prefix: str, embedding_di
         logger.info("Redis search index '%s' exists.", INDEX_NAME)
 
         # Verify the schema
-        schema = info.get('attributes', [])
+        schema = info.get("attributes", [])
 
         return
     except redis_exceptions.ResponseError as ex:
@@ -112,9 +115,9 @@ async def ensure_index_exists(client: redis.Redis, key_prefix: str, embedding_di
         try:
             # Create the index
             logger.info("Creating new index '%s' with schema", INDEX_NAME)
-            await client.ft(INDEX_NAME).create_index(schema,
-                                                     definition=IndexDefinition(prefix=[f"{key_prefix}:"],
-                                                                                index_type=IndexType.JSON))
+            await client.ft(INDEX_NAME).create_index(
+                schema, definition=IndexDefinition(prefix=[f"{key_prefix}:"], index_type=IndexType.JSON)
+            )
 
             # Verify index was created
             info = await client.ft(INDEX_NAME).info()
@@ -122,7 +125,7 @@ async def ensure_index_exists(client: redis.Redis, key_prefix: str, embedding_di
             logger.debug("Redis search index info: %s", info)
 
             # Verify the schema
-            schema = info.get('attributes', [])
+            schema = info.get("attributes", [])
             logger.debug("New index schema: %s", schema)
 
         except redis_exceptions.ResponseError as e:

@@ -73,7 +73,7 @@ class RedisEditor(MemoryEditor):
                 "user_id": user_id,
                 "tags": tags,
                 "metadata": item_meta,
-                "memory": memory_item.memory or ""
+                "memory": memory_item.memory or "",
             }
             logger.debug("Prepared memory data for key %s", memory_key)
 
@@ -137,9 +137,13 @@ class RedisEditor(MemoryEditor):
             raise
 
         # Create vector search query; escape special characters in user_id
-        escaped_user_id = user_id.replace("\\", "\\\\").replace("\"", "\\\"")
-        search_query = (Query(f'(@user_id:"{escaped_user_id}")=>[KNN {top_k} @embedding $vec AS score]').sort_by(
-            "score").return_fields("conversation", "user_id", "tags", "metadata", "memory", "score").dialect(2))
+        escaped_user_id = user_id.replace("\\", "\\\\").replace('"', '\\"')
+        search_query = (
+            Query(f'(@user_id:"{escaped_user_id}")=>[KNN {top_k} @embedding $vec AS score]')
+            .sort_by("score")
+            .return_fields("conversation", "user_id", "tags", "metadata", "memory", "score")
+            .dialect(2)
+        )
         logger.debug("Created search query: %s", search_query)
         logger.debug("Query string: %s", search_query.query_string())
 
@@ -163,7 +167,7 @@ class RedisEditor(MemoryEditor):
             # Check if there are any documents in the index
             try:
                 total_docs = await self._client.ft(INDEX_NAME).info()
-                logger.debug("Total documents in index: %d", total_docs.get('num_docs', 0))
+                logger.debug("Total documents in index: %d", total_docs.get("num_docs", 0))
             except Exception as e:
                 logger.exception("Failed to get index info: %s", e)
 
@@ -181,15 +185,17 @@ class RedisEditor(MemoryEditor):
                     logger.debug("Processing result %d/%d", i + 1, len(results.docs))
 
                     # Extract similarity score
-                    similarity_score = float(getattr(doc, 'score', 0.0))
+                    similarity_score = float(getattr(doc, "score", 0.0))
                     logger.debug("Similarity score: %.4f", similarity_score)
 
                     # Apply similarity threshold filtering if specified
                     if similarity_threshold is not None and similarity_score > similarity_threshold:
-                        logger.debug("Filtering out result %d due to score %.4f > threshold %.4f",
-                                     i + 1,
-                                     similarity_score,
-                                     similarity_threshold)
+                        logger.debug(
+                            "Filtering out result %d due to score %.4f > threshold %.4f",
+                            i + 1,
+                            similarity_score,
+                            similarity_threshold,
+                        )
                         continue
 
                     # Get the full document data
@@ -224,12 +230,14 @@ class RedisEditor(MemoryEditor):
         elif not isinstance(tags, list):
             tags = []
 
-        return MemoryItem(conversation=memory_data.get("conversation", []),
-                          user_id=user_id,
-                          memory=memory_data.get("memory", ""),
-                          tags=tags,
-                          metadata=memory_data.get("metadata", {}),
-                          similarity_score=similarity_score)
+        return MemoryItem(
+            conversation=memory_data.get("conversation", []),
+            user_id=user_id,
+            memory=memory_data.get("memory", ""),
+            tags=tags,
+            metadata=memory_data.get("metadata", {}),
+            similarity_score=similarity_score,
+        )
 
     async def remove_items(self, **kwargs):
         """
