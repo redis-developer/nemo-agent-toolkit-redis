@@ -71,8 +71,18 @@ jobs:
               return;
             }
 
-            // Pick the merged PR targeting main (most common).
-            const pr = pulls.data.find(p => p.merged_at && p.base?.ref === "main") ?? pulls.data[0];
+            // Only act on a PR that was actually merged into main.
+            // If none is found (e.g. backport or same-commit PR from another base),
+            // bail out rather than falling back to an arbitrary association.
+            const pr = pulls.data.find(p => p.merged_at && p.base?.ref === "main");
+            if (!pr) {
+              core.setOutput("should_release", "false");
+              core.setOutput("pr_number", "");
+              core.notice(
+                `No merged-into-main PR found among ${pulls.data.length} association(s) for commit ${sha}. Not releasing.`
+              );
+              return;
+            }
             const labels = (pr.labels || []).map(l => l.name);
             core.setOutput("pr_number", String(pr.number));
             const should = labels.includes("auto:release");
