@@ -18,15 +18,15 @@ env:
   PYTHON_VERSION: "3.12"
   UV_VERSION: "0.7.13"
   AUTO_VERSION: "11.3.6"
-  RELEASE_BOT_NAME: "github-actions[bot]"
-  RELEASE_BOT_EMAIL: "github-actions[bot]@users.noreply.github.com"
+  RELEASE_BOT_NAME: "applied-ai-releases[bot]"
+  RELEASE_BOT_EMAIL: "applied-ai-releases[bot]@users.noreply.github.com"
 
 jobs:
   gate:
     name: Gate on merged PR label
     runs-on: ubuntu-latest
-    # Prevent re-triggering on automated commits pushed by this workflow.
-    if: github.actor != 'github-actions[bot]'
+    # Prevent infinite loops from the bot's release commits.
+    if: github.actor != 'applied-ai-releases[bot]'
     outputs:
       should_release: ${{ steps.find_pr.outputs.should_release }}
       pr_number: ${{ steps.find_pr.outputs.pr_number }}
@@ -150,18 +150,27 @@ jobs:
     runs-on: ubuntu-latest
     needs: [gate, canary-build, compat]
     if: needs.gate.outputs.should_release == 'true'
-    # Requires secrets.GH_TOKEN: a PAT with repo scope.
-    # The built-in GITHUB_TOKEN cannot push tags past branch protection rules.
+    # Requires secrets.RELEASE_BOT_PRIVATE_KEY: private key for the
+    # applied-ai-releases GitHub App (app ID 2959093). The app must be
+    # installed on the redis-developer org.
     outputs:
       version: ${{ steps.latest_release.outputs.version }}
     steps:
+      - name: Generate GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: 2959093
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ steps.app_token.outputs.token }}
 
       - name: Download and install auto
         run: |
@@ -173,7 +182,7 @@ jobs:
 
       - name: Sanity check (dry run)
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
           set -euo pipefail
           auto shipit --name "${RELEASE_BOT_NAME}" --email "${RELEASE_BOT_EMAIL}" --dry-run -v
@@ -187,7 +196,7 @@ jobs:
       - name: Resolve release version
         id: latest_release
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
           set -euo pipefail
           RAW_VERSION="$(auto shipit --name "${RELEASE_BOT_NAME}" --email "${RELEASE_BOT_EMAIL}" --dry-run --quiet | tail -n1 | tr -d '\r')"
@@ -201,7 +210,7 @@ jobs:
 
       - name: Sync label definitions
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: auto create-labels
 
       - name: Create and push tag
@@ -221,7 +230,7 @@ jobs:
 
       - name: Create GitHub release with auto-generated notes
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
         run: |
           set -euo pipefail
           auto release \
@@ -236,7 +245,7 @@ jobs:
     if: needs.gate.outputs.should_release == 'true'
     environment:
       name: pypi
-      url: https://pypi.org/project/nvidia-nat-redis/
+      url: https://pypi.org/project/nemo-agent-toolkit-redis/
     permissions:
       id-token: write      # OIDC for trusted PyPI publishing
       attestations: write  # SLSA build provenance

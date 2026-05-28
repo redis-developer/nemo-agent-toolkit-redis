@@ -5,7 +5,7 @@
     "released"
   ],
   "owner": "redis-developer",
-  "repo": "nvidia-nat-redis",
+  "repo": "nemo-agent-toolkit-redis",
   "onlyPublishWithReleaseLabel": true,
   "labels": [
     {

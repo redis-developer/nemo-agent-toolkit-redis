@@ -34,9 +34,9 @@ test = [
 ]
 
 [project.urls]
-documentation = "https://github.com/redis-developer/nvidia-nat-redis/tree/main/docs"
-issues = "https://github.com/redis-developer/nvidia-nat-redis/issues"
-source = "https://github.com/redis-developer/nvidia-nat-redis"
+documentation = "https://github.com/redis-developer/nemo-agent-toolkit-redis/tree/main/docs"
+issues = "https://github.com/redis-developer/nemo-agent-toolkit-redis/issues"
+source = "https://github.com/redis-developer/nemo-agent-toolkit-redis"
 
 [project.entry-points.'nat.components']
 nat_redis = "nat.plugins.redis.register"
