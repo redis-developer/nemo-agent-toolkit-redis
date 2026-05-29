@@ -36,12 +36,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     run_integration = config.getoption("--run-integration")
     run_api_tests = config.getoption("--run-api-tests")
 
-    skip_integration = pytest.mark.skip(
-        reason="Skipping integration tests. Use --run-integration to run them."
-    )
-    skip_api = pytest.mark.skip(
-        reason="Skipping API-backed tests. Use --run-api-tests to run them."
-    )
+    skip_integration = pytest.mark.skip(reason="Skipping integration tests. Use --run-integration to run them.")
+    skip_api = pytest.mark.skip(reason="Skipping API-backed tests. Use --run-api-tests to run them.")
 
     for item in items:
         if item.get_closest_marker("integration") and not run_integration:

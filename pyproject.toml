@@ -22,7 +22,7 @@ classifiers = [
 dependencies = [
   "agent-memory-client>=0.14.0,<1.0.0",
   "langchain-core>=0.3.0,<2.0.0",
-  "nvidia-nat-core>=1.5.0,<2.0.0",
+  "nvidia-nat-core>=1.6.0,<2.0.0",
   "redis>=4.3.4,<5.0.0",
 ]
 
@@ -34,9 +34,9 @@ test = [
 ]
 
 [project.urls]
-documentation = "https://github.com/redis-developer/nvidia-nat-redis/tree/main/docs"
-issues = "https://github.com/redis-developer/nvidia-nat-redis/issues"
-source = "https://github.com/redis-developer/nvidia-nat-redis"
+documentation = "https://github.com/redis-developer/nemo-agent-toolkit-redis/tree/main/docs"
+issues = "https://github.com/redis-developer/nemo-agent-toolkit-redis/issues"
+source = "https://github.com/redis-developer/nemo-agent-toolkit-redis"
 
 [project.entry-points.'nat.components']
 nat_redis = "nat.plugins.redis.register"

@@ -1,57 +1,296 @@
-name: Publish
+name: Publish Release
 
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  workflow_dispatch: {}
 
 permissions:
-  contents: read
-  id-token: write
+  contents: write      # create tags and GitHub Releases
+  issues: write        # auto needs to comment on issues
+  pull-requests: write # auto needs to comment on PRs
+
+concurrency:
+  group: publish-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.7.13"
+  AUTO_VERSION: "11.3.6"
+  RELEASE_BOT_NAME: "applied-ai-releases[bot]"
+  RELEASE_BOT_EMAIL: "applied-ai-releases[bot]@users.noreply.github.com"
 
 jobs:
-  verify:
+  gate:
+    name: Gate on merged PR label
     runs-on: ubuntu-latest
+    # Prevent infinite loops from the bot's release commits.
+    if: github.actor != 'applied-ai-releases[bot]'
+    outputs:
+      should_release: ${{ steps.find_pr.outputs.should_release }}
+      pr_number: ${{ steps.find_pr.outputs.pr_number }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Find merged PR for this commit and check labels
+        id: find_pr
+        uses: actions/github-script@v7
         with:
-          python-version: "3.12"
-      - uses: astral-sh/setup-uv@v6
-      - name: Sync
-        run: uv sync --group dev --extra test
-      - name: Verify
-        run: make check
-      - name: Docker Info
-        run: docker info
-      - name: Integration Tests
-        run: make test-integration
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const sha = context.sha;
+            const maxAttempts = 6;
+            let pulls;
 
-  build:
-    needs: verify
+            // GitHub can briefly lag in associating the merge commit on main back to its PR,
+            // so retry for a short window before concluding there is no releasable PR.
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              pulls = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner, repo, commit_sha: sha
+              });
+              if (pulls.data.length) {
+                core.notice(
+                  `Found ${pulls.data.length} PR association(s) for commit ${sha} on attempt ${attempt}/${maxAttempts}.`
+                );
+                break;
+              }
+              if (attempt < maxAttempts) {
+                core.notice(
+                  `No PR associated with commit ${sha} on attempt ${attempt}/${maxAttempts}. Retrying in 10 seconds...`
+                );
+                await new Promise((resolve) => setTimeout(resolve, 10000));
+              }
+            }
+
+            if (!pulls.data.length) {
+              core.setOutput("should_release", "false");
+              core.setOutput("pr_number", "");
+              core.notice(
+                `No PR associated with commit ${sha} after ${maxAttempts} attempts. Not releasing.`
+              );
+              return;
+            }
+
+            // Only act on a PR that was actually merged into main.
+            // If none is found (e.g. backport or same-commit PR from another base),
+            // bail out rather than falling back to an arbitrary association.
+            const pr = pulls.data.find(p => p.merged_at && p.base?.ref === "main");
+            if (!pr) {
+              core.setOutput("should_release", "false");
+              core.setOutput("pr_number", "");
+              core.notice(
+                `No merged-into-main PR found among ${pulls.data.length} association(s) for commit ${sha}. Not releasing.`
+              );
+              return;
+            }
+            const labels = (pr.labels || []).map(l => l.name);
+            core.setOutput("pr_number", String(pr.number));
+            const should = labels.includes("auto:release");
+            core.setOutput("should_release", should ? "true" : "false");
+            core.notice(`PR #${pr.number} labels: ${labels.join(", ")}`);
+            core.notice(`should_release=${should}`);
+
+  canary-build:
+    name: Canary build check
     runs-on: ubuntu-latest
+    needs: gate
+    if: needs.gate.outputs.should_release == 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out repository
+        uses: actions/checkout@v4
         with:
-          python-version: "3.12"
-      - uses: astral-sh/setup-uv@v6
-      - name: Build
+          ref: main
+          fetch-depth: 0
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Check that package can be built
         run: uv build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/*
 
-  publish:
-    needs: build
+  compat:
+    name: NAT compatibility (${{ matrix.nat-core }})
     runs-on: ubuntu-latest
+    needs: gate
+    if: needs.gate.outputs.should_release == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        nat-core: ["~=1.6.0", "~=1.7.0"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+      - name: Install dependencies
+        run: uv sync --group dev --extra test
+      - name: Pin nvidia-nat-core version
+        run: uv pip install "nvidia-nat-core${{ matrix.nat-core }}"
+      - name: Validate tool-based-memory config
+        run: uv run nat validate --config_file examples/tool_based_memory/configs/config.yml
+      - name: Validate agent-auto-memory config
+        run: uv run nat validate --config_file examples/agent_auto_memory/configs/config.yml
+      - name: Run tests
+        run: uv run python -m pytest
+
+  release:
+    name: Tag and release
+    runs-on: ubuntu-latest
+    needs: [gate, canary-build, compat]
+    if: needs.gate.outputs.should_release == 'true'
+    # Requires secrets.RELEASE_BOT_PRIVATE_KEY: private key for the
+    # applied-ai-releases GitHub App (app ID 2959093). The app must be
+    # installed on the redis-developer org.
+    outputs:
+      version: ${{ steps.latest_release.outputs.version }}
+    steps:
+      - name: Generate GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: 2959093
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ steps.app_token.outputs.token }}
+
+      - name: Download and install auto
+        run: |
+          curl -L https://github.com/intuit/auto/releases/download/v${{ env.AUTO_VERSION }}/auto-linux.gz -o auto-linux.gz
+          gunzip auto-linux.gz
+          chmod +x auto-linux
+          sudo mv auto-linux /usr/local/bin/auto
+          auto --version
+
+      - name: Sanity check (dry run)
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          set -euo pipefail
+          auto shipit --name "${RELEASE_BOT_NAME}" --email "${RELEASE_BOT_EMAIL}" --dry-run -v
+
+      - name: Capture previous tag
+        id: previous_tag
+        run: |
+          set -euo pipefail
+          echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release version
+        id: latest_release
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          set -euo pipefail
+          RAW_VERSION="$(auto shipit --name "${RELEASE_BOT_NAME}" --email "${RELEASE_BOT_EMAIL}" --dry-run --quiet | tail -n1 | tr -d '\r')"
+          VERSION="${RAW_VERSION#v}"
+          if [ -z "$VERSION" ]; then
+            echo "Could not resolve release version"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION"
+
+      - name: Sync label definitions
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: auto create-labels
+
+      - name: Create and push tag
+        run: |
+          set -euo pipefail
+          TAG="v${{ steps.latest_release.outputs.version }}"
+          git config user.name "${RELEASE_BOT_NAME}"
+          git config user.email "${RELEASE_BOT_EMAIL}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists. Skipping creation."
+            exit 0
+          fi
+          # Note: no pyproject.toml version bump needed — setuptools-scm derives
+          # the version directly from this tag at build time.
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub release with auto-generated notes
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          set -euo pipefail
+          auto release \
+            --from "${{ steps.previous_tag.outputs.tag }}" \
+            --to "v${{ steps.latest_release.outputs.version }}" \
+            --use-version "v${{ steps.latest_release.outputs.version }}"
+
+  build-and-publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [gate, release]
+    if: needs.gate.outputs.should_release == 'true'
     environment:
       name: pypi
+      url: https://pypi.org/project/nemo-agent-toolkit-redis/
+    permissions:
+      id-token: write      # OIDC for trusted PyPI publishing
+      attestations: write  # SLSA build provenance
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
         with:
-          name: dist
-          path: dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
+          ref: v${{ needs.release.outputs.version }}
+          fetch-depth: 0   # required for setuptools-scm to resolve version from the tag
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Build package
+        run: uv build
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

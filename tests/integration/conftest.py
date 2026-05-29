@@ -104,12 +104,10 @@ def _running_stack(
         ),
         "ENABLE_DISCRETE_MEMORY_EXTRACTION": "true" if enable_discrete_extraction else "false",
     }
-    resolved_openai_api_key = (
-        openai_api_key if openai_api_key is not None else os.environ.get("OPENAI_API_KEY")
-    )
+    resolved_openai_api_key = openai_api_key if openai_api_key is not None else os.environ.get("OPENAI_API_KEY")
     if resolved_openai_api_key:
         compose_env["OPENAI_API_KEY"] = resolved_openai_api_key
-    if (openai_base_url := os.environ.get("OPENAI_BASE_URL")):
+    if openai_base_url := os.environ.get("OPENAI_BASE_URL"):
         compose_env["OPENAI_BASE_URL"] = openai_base_url
 
     original_env = {key: os.environ.get(key) for key in compose_env}

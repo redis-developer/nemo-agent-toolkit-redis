@@ -27,8 +27,9 @@ class RedisMemoryClientConfig(MemoryBaseConfig, name="redis_memory"):
     port: int = Field(default=6379, description="Redis server port")
     password: OptionalSecretStr = Field(default=None, description="Password for the Redis server")
     key_prefix: str = Field(default="nat", description="Key prefix to use for redis keys")
-    embedder: EmbedderRef = Field(description=("Instance name of the memory client instance from the workflow "
-                                               "configuration object."))
+    embedder: EmbedderRef = Field(
+        description=("Instance name of the memory client instance from the workflow configuration object.")
+    )
 
 
 @register_memory(config_type=RedisMemoryClientConfig)
@@ -41,13 +42,15 @@ async def redis_memory_client(config: RedisMemoryClientConfig, builder: Builder)
     from .redis_editor import RedisEditor
     from .schema import ensure_index_exists
 
-    redis_client = redis.Redis(host=config.host,
-                               port=config.port,
-                               db=config.db,
-                               password=get_secret_value(config.password),
-                               decode_responses=True,
-                               socket_timeout=5.0,
-                               socket_connect_timeout=5.0)
+    redis_client = redis.Redis(
+        host=config.host,
+        port=config.port,
+        db=config.db,
+        password=get_secret_value(config.password),
+        decode_responses=True,
+        socket_timeout=5.0,
+        socket_connect_timeout=5.0,
+    )
 
     embedder = await builder.get_embedder(config.embedder, wrapper_type=LLMFrameworkEnum.LANGCHAIN)
 

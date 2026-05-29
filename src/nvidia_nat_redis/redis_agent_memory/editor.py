@@ -399,9 +399,7 @@ class RedisAgentMemoryEditor(MemoryEditor):
             search_kwargs.update({key: value for key, value in filter_fields.items() if value is not None})
             results = await self._client.search_long_term_memory(**search_kwargs)
             matched_ids = [
-                record.id
-                for record in getattr(results, "memories", []) or []
-                if getattr(record, "id", None)
+                record.id for record in getattr(results, "memories", []) or [] if getattr(record, "id", None)
             ]
 
             if not matched_ids:

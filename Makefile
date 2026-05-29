@@ -5,6 +5,7 @@ setup:
 
 lint:
 	uv run ruff check .
+	uv run ruff format --check .
 
 test:
 	uv run python -m pytest

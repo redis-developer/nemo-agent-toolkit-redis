@@ -36,9 +36,7 @@ def _load_env_file(env_file: Path) -> None:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Run the Redis Agent Memory native auto-memory example."
-    )
+    parser = argparse.ArgumentParser(description="Run the Redis Agent Memory native auto-memory example.")
     parser.add_argument(
         "--config-file",
         type=Path,
@@ -90,9 +88,7 @@ async def _main() -> int:
     _load_env_file(args.env_file)
 
     if not os.environ.get("OPENAI_API_KEY"):
-        raise SystemExit(
-            "OPENAI_API_KEY is required. Copy .env.example to .env or export it in your shell."
-        )
+        raise SystemExit("OPENAI_API_KEY is required. Copy .env.example to .env or export it in your shell.")
 
     inputs = args.inputs or DEFAULT_PROMPTS
     await _run_inputs(

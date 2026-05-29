@@ -99,8 +99,9 @@ class RedisObjectStore(ObjectStore):
         item_json = item.model_dump_json()
         # Redis SET with NX ensures we do not overwrite existing keys
         if not await self._client.set(full_key, item_json, nx=True, ex=self._ttl):
-            raise KeyAlreadyExistsError(key=key,
-                                        additional_message=f"Redis bucket {self._bucket_name} already has key {key}")
+            raise KeyAlreadyExistsError(
+                key=key, additional_message=f"Redis bucket {self._bucket_name} already has key {key}"
+            )
 
     @override
     async def upsert_object(self, key: str, item: ObjectStoreItem):
@@ -121,8 +122,9 @@ class RedisObjectStore(ObjectStore):
         full_key = self._make_key(key)
         data = await self._client.get(full_key)
         if data is None:
-            raise NoSuchKeyError(key=key,
-                                 additional_message=f"Redis bucket {self._bucket_name} does not have key {key}")
+            raise NoSuchKeyError(
+                key=key, additional_message=f"Redis bucket {self._bucket_name} does not have key {key}"
+            )
         return ObjectStoreItem.model_validate_json(data)
 
     @override
@@ -134,5 +136,6 @@ class RedisObjectStore(ObjectStore):
         full_key = self._make_key(key)
         deleted = await self._client.delete(full_key)
         if deleted == 0:
-            raise NoSuchKeyError(key=key,
-                                 additional_message=f"Redis bucket {self._bucket_name} does not have key {key}")
+            raise NoSuchKeyError(
+                key=key, additional_message=f"Redis bucket {self._bucket_name} does not have key {key}"
+            )
