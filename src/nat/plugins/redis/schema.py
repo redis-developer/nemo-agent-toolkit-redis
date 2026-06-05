@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+import logging  # noqa: I001
 
 import redis.asyncio as redis
 import redis.exceptions as redis_exceptions
@@ -56,8 +56,9 @@ def create_schema(embedding_dim: int = DEFAULT_DIM):
 
     schema = (
         # Redis search can't directly index complex objects (e.g. conversation and metadata) in return_fields
-        # They need to be retrieved via json().get() for full object access
-        TextField("$.user_id", as_name="user_id"),
+        # They need to be retrieved via json().get() for full object access.
+        # TagField is used for user_id to ensure exact-match filtering without stemming.
+        TagField("$.user_id", as_name="user_id"),
         TagField("$.tags[*]", as_name="tags"),
         TextField("$.memory", as_name="memory"),
         embedding_field,

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
+import logging  # noqa: I001
 import secrets
 
 import numpy as np
@@ -136,10 +136,17 @@ class RedisEditor(MemoryEditor):
             logger.error("Failed to generate embedding: %s", e)
             raise
 
-        # Create vector search query; escape special characters in user_id
-        escaped_user_id = user_id.replace("\\", "\\\\").replace('"', '\\"')
+        # Create vector search query.
+        # user_id is a TagField — escape characters that are special in TAG queries.
+        escaped_user_id = (
+            user_id
+            .replace("\\", "\\\\")
+            .replace("{", "\\{")
+            .replace("}", "\\}")
+            .replace("|", "\\|")
+        )
         search_query = (
-            Query(f'(@user_id:"{escaped_user_id}")=>[KNN {top_k} @embedding $vec AS score]')
+            Query(f"(@user_id:{{{escaped_user_id}}})=>[KNN {top_k} @embedding $vec AS score]")
             .sort_by("score")
             .return_fields("conversation", "user_id", "tags", "metadata", "memory", "score")
             .dialect(2)

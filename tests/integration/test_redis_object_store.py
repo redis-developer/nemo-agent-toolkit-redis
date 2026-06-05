@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
-
 import pytest
 from nat.data_models.object_store import NoSuchKeyError
 from nat.object_store.models import ObjectStoreItem
@@ -12,11 +10,8 @@ from nat.object_store.models import ObjectStoreItem
 from nat.plugins.redis.redis_object_store import RedisObjectStore
 
 
-@pytest.mark.integration
-async def test_redis_object_store_roundtrip(ams_stack: dict[str, str], unique_suffix: str) -> None:
-    parsed = urlparse(ams_stack["redis_url"])
-    host = parsed.hostname or "127.0.0.1"
-    port = parsed.port or 6379
+async def test_redis_object_store_roundtrip(local_redis_params: tuple[str, int], unique_suffix: str) -> None:
+    host, port = local_redis_params
 
     key = f"redis_os_{unique_suffix}"
     item = ObjectStoreItem(data=b"hello", content_type="application/octet-stream", metadata={"k": "v"})

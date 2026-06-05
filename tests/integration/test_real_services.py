@@ -16,7 +16,6 @@ from nvidia_nat_redis.redis_agent_memory.client_factory import create_agent_memo
 from nvidia_nat_redis.redis_agent_memory.memory import RedisAgentMemoryBackendConfig
 
 pytestmark = [
-    pytest.mark.integration,
     pytest.mark.filterwarnings(
         "ignore:get_working_memory is deprecated and will be removed in a future version.*:DeprecationWarning"
     ),
@@ -89,7 +88,7 @@ def _write_config(tmp_path: Path, filename: str, content: str) -> Path:
 
 @pytest.mark.asyncio
 async def test_working_memory_round_trip_against_real_ams(
-    ams_stack: dict[str, str],
+    local_ams_stack: dict[str, str],
     unique_suffix: str,
 ) -> None:
     namespace = f"it-working-{unique_suffix}"
@@ -97,7 +96,7 @@ async def test_working_memory_round_trip_against_real_ams(
     session_id = f"session-{unique_suffix}"
 
     config = RedisAgentMemoryBackendConfig(
-        base_url=ams_stack["ams_url"],
+        base_url=local_ams_stack["ams_url"],
         default_namespace=namespace,
         timeout=30.0,
     )
@@ -138,10 +137,9 @@ async def test_working_memory_round_trip_against_real_ams(
         await client.close()
 
 
-@pytest.mark.requires_api_keys
 @pytest.mark.asyncio
 async def test_editor_round_trip_against_real_ams(
-    ams_stack_with_api: dict[str, str],
+    local_ams_stack_with_api: dict[str, str],
     unique_suffix: str,
 ) -> None:
     namespace = f"it-editor-{unique_suffix}"
@@ -150,7 +148,7 @@ async def test_editor_round_trip_against_real_ams(
     memory_text = "User prefers jasmine green tea after lunch."
 
     config = RedisAgentMemoryBackendConfig(
-        base_url=ams_stack_with_api["ams_url"],
+        base_url=local_local_ams_stack_with_api["ams_url"],
         default_namespace=namespace,
         timeout=30.0,
     )
@@ -199,10 +197,9 @@ async def test_editor_round_trip_against_real_ams(
         await client.close()
 
 
-@pytest.mark.requires_api_keys
 @pytest.mark.asyncio
 async def test_auto_memory_workflow_round_trip_with_openai(
-    ams_stack_with_api: dict[str, str],
+    local_ams_stack_with_api: dict[str, str],
     openai_api_key: str,
     openai_model_name: str,
     tmp_path: Path,
@@ -240,7 +237,7 @@ async def test_auto_memory_workflow_round_trip_with_openai(
         memory:
           redis_ltm:
             _type: redis_agent_memory_backend
-            base_url: {ams_stack_with_api["ams_url"]}
+            base_url: {local_ams_stack_with_api["ams_url"]}
             default_namespace: {namespace}
 
         workflow:
@@ -279,10 +276,9 @@ async def test_auto_memory_workflow_round_trip_with_openai(
     assert "oolong" in second.lower()
 
 
-@pytest.mark.requires_api_keys
 @pytest.mark.asyncio
 async def test_tool_based_workflow_uses_real_memory_tools_with_openai(
-    ams_stack_with_api: dict[str, str],
+    local_ams_stack_with_api: dict[str, str],
     openai_api_key: str,
     openai_model_name: str,
     tmp_path: Path,
@@ -313,7 +309,7 @@ async def test_tool_based_workflow_uses_real_memory_tools_with_openai(
         memory:
           redis_memory:
             _type: redis_agent_memory_backend
-            base_url: {ams_stack_with_api["ams_url"]}
+            base_url: {local_ams_stack_with_api["ams_url"]}
             default_namespace: {namespace}
 
         functions:

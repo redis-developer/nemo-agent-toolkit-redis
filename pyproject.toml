@@ -22,8 +22,10 @@ classifiers = [
 dependencies = [
   "agent-memory-client>=0.14.0,<1.0.0",
   "langchain-core>=0.3.0,<2.0.0",
+  "numpy>=1.24",
   "nvidia-nat-core>=1.6.0,<2.0.0",
-  "redis>=4.3.4,<5.0.0",
+  "redis>=5.0.0,<6.0.0",
+  "redisvl>=0.16.0,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -44,7 +46,10 @@ nat_redis = "nat.plugins.redis.register"
 [dependency-groups]
 dev = [
   "nvidia-nat-langchain>=1.5.0,<2.0.0",
+  "pytest>=8.3,<9.0",
+  "pytest-asyncio>=0.24,<1.0",
   "ruff>=0.15.0,<0.16.0",
+  "testcontainers>=4.3.1,<5",
 ]
 
 [tool.setuptools.packages.find]
@@ -60,6 +65,7 @@ package = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 
 [tool.ruff]
