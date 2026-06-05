@@ -38,8 +38,8 @@ from urllib.parse import urlparse
 import pytest
 import redis.asyncio as aioredis
 import redis.exceptions as redis_exceptions
-from redis.commands.search.field import TagField, TextField, VectorField
-from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+from redisvl.index import AsyncSearchIndex
+from redisvl.schema import IndexSchema
 from redisvl.utils.vectorize import CustomVectorizer
 
 from nat.memory.models import MemoryItem
@@ -123,59 +123,57 @@ class _VectorizerEmbedder:
 # Fixtures
 # ---------------------------------------------------------------------------
 
-def _build_test_schema(embedding_dim: int = EMBEDDING_DIM):
-    """Inline schema used by fixtures — intentionally does not call create_schema()
-    from schema.py so that stale .pyc files cannot cause the wrong field type to be used.
-    The user_id field is a TagField for exact-match filtering without stemming.
+def _build_index_schema(key_prefix: str, embedding_dim: int = EMBEDDING_DIM) -> IndexSchema:
+    """Build a redisvl IndexSchema for test fixtures.
+
+    Mirrors the production schema in schema.py: user_id and tags as TagFields,
+    memory as TextField, embedding as HNSW VectorField.  Defined inline so that
+    the tests do not depend on the production schema.py's compiled .pyc state.
     """
-    return (
-        TagField("$.user_id", as_name="user_id"),
-        TagField("$.tags[*]", as_name="tags"),
-        TextField("$.memory", as_name="memory"),
-        VectorField(
-            "$.embedding",
-            "HNSW",
-            {
-                "TYPE": "FLOAT32",
-                "DIM": embedding_dim,
-                "DISTANCE_METRIC": "L2",
-                "INITIAL_CAP": 100,
-                "M": 16,
-                "EF_CONSTRUCTION": 200,
-                "EF_RUNTIME": 10,
+    return IndexSchema.from_dict(
+        {
+            "index": {
+                "name": INDEX_NAME,
+                "prefix": f"{key_prefix}:memory",
+                "key_separator": ":",
+                "storage_type": "json",
             },
-            as_name="embedding",
-        ),
+            "fields": [
+                {"name": "user_id", "type": "tag"},
+                {"name": "tags", "type": "tag", "path": "$.tags[*]"},
+                {"name": "memory", "type": "text"},
+                {
+                    "name": "embedding",
+                    "type": "vector",
+                    "attrs": {
+                        "algorithm": "hnsw",
+                        "datatype": "float32",
+                        "dims": embedding_dim,
+                        "distance_metric": "l2",
+                        "initial_cap": 100,
+                        "m": 16,
+                        "ef_construction": 200,
+                        "ef_runtime": 10,
+                    },
+                },
+            ],
+        }
     )
 
 
 async def _force_recreate_index(
     client: aioredis.Redis, key_prefix: str, embedding_dim: int = EMBEDDING_DIM
-) -> None:
-    """Drop any existing index and create a fresh one with the correct schema."""
-    try:
-        await client.ft(INDEX_NAME).dropindex()
-    except redis_exceptions.ResponseError as e:
-        # Ignore "no such index" — any other ResponseError means the drop actually
-        # failed and we must re-raise so the test surfaces the real reason.
-        if "unknown" not in str(e).lower() and "no such" not in str(e).lower():
-            raise
-    schema = _build_test_schema(embedding_dim)
-    try:
-        await client.ft(INDEX_NAME).create_index(
-            schema,
-            definition=IndexDefinition(prefix=[f"{key_prefix}:"], index_type=IndexType.JSON),
-        )
-    except redis_exceptions.ResponseError as e:
-        if "already exists" in str(e).lower():
-            # Index was not dropped (drop silently failed) — drop with DD and retry.
-            await client.ft(INDEX_NAME).dropindex(delete_documents=True)
-            await client.ft(INDEX_NAME).create_index(
-                schema,
-                definition=IndexDefinition(prefix=[f"{key_prefix}:"], index_type=IndexType.JSON),
-            )
-        else:
-            raise
+) -> AsyncSearchIndex:
+    """Drop any existing index and create a fresh one via redisvl's AsyncSearchIndex.
+
+    Returns the AsyncSearchIndex so callers can pass it directly to RedisEditor.
+    ``create(overwrite=True, drop=True)`` deletes both the index definition and
+    all associated document keys before creating the new index.
+    """
+    schema = _build_index_schema(key_prefix, embedding_dim)
+    index = AsyncSearchIndex(schema=schema, redis_client=client)
+    await index.create(overwrite=True, drop=True)
+    return index
 
 
 def _parse_redis_url(url: str) -> tuple[str, int]:
@@ -234,23 +232,18 @@ async def redis_editor(
     interfere with the field types used.
     """
     key_prefix = f"nat_it_{unique_suffix}"
-    await _force_recreate_index(redis_client, key_prefix)
+    index = await _force_recreate_index(redis_client, key_prefix)
 
-    editor = RedisEditor(
-        redis_client=redis_client,
-        key_prefix=key_prefix,
-        embedder=_VectorizerEmbedder(vectorizer),
-    )
+    editor = RedisEditor(index=index, embedder=_VectorizerEmbedder(vectorizer))
 
     yield editor
 
-    # Teardown: remove documents then drop the index so subsequent tests
-    # (including workflow tests) start with a clean slate and ensure_index_exists
-    # creates a fresh index with the correct key-prefix.
+    # Teardown: clear all documents then drop the index so subsequent tests
+    # start with a clean slate.
     await editor.remove_items()
     try:
-        await redis_client.ft(INDEX_NAME).dropindex()
-    except redis_exceptions.ResponseError:
+        await index.delete(drop=True)
+    except Exception:
         pass
 
 
@@ -285,20 +278,22 @@ async def test_redis_schema_creates_index(
     """``ensure_index_exists`` creates a RediSearch index containing an embedding field."""
     key_prefix = f"schema_test_{unique_suffix}"
 
+    # Start clean using redisvl's delete helper if an index already exists.
+    scratch = AsyncSearchIndex(schema=_build_index_schema(key_prefix), redis_client=redis_client)
     try:
-        await redis_client.ft(INDEX_NAME).dropindex()
-    except redis_exceptions.ResponseError:
+        await scratch.delete(drop=True)
+    except Exception:
         pass
 
-    await ensure_index_exists(
+    index = await ensure_index_exists(
         client=redis_client,
         key_prefix=key_prefix,
         embedding_dim=EMBEDDING_DIM,
     )
 
-    info = await redis_client.ft(INDEX_NAME).info()
-    # Under RESP2 each attribute is a flat list [key, value, ...]; under RESP3 it is a dict.
-    # Stringify the whole attributes block so the check works in both modes.
+    info = await index.info()
+    # Stringify the attributes block so the check is robust across redisvl
+    # protocol versions (RESP2 returns flat lists; RESP3 returns dicts).
     assert "embedding" in str(info.get("attributes", "")), (
         f"Expected 'embedding' in index attributes; got: {info.get('attributes')}"
     )
@@ -311,15 +306,16 @@ async def test_redis_schema_create_is_idempotent(
     """Calling ``ensure_index_exists`` a second time on an existing index must not raise."""
     key_prefix = f"idem_test_{unique_suffix}"
 
+    scratch = AsyncSearchIndex(schema=_build_index_schema(key_prefix), redis_client=redis_client)
     try:
-        await redis_client.ft(INDEX_NAME).dropindex()
-    except redis_exceptions.ResponseError:
+        await scratch.delete(drop=True)
+    except Exception:
         pass
 
     await ensure_index_exists(client=redis_client, key_prefix=key_prefix, embedding_dim=EMBEDDING_DIM)
-    await ensure_index_exists(client=redis_client, key_prefix=key_prefix, embedding_dim=EMBEDDING_DIM)
-
-    assert await redis_client.ft(INDEX_NAME).info() is not None
+    # Second call must be a no-op — not raise.
+    index = await ensure_index_exists(client=redis_client, key_prefix=key_prefix, embedding_dim=EMBEDDING_DIM)
+    assert await index.info() is not None
 
 
 # ---------------------------------------------------------------------------

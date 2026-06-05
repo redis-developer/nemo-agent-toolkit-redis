@@ -13,12 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging  # noqa: I001
+import logging
 
 import redis.asyncio as redis
-import redis.exceptions as redis_exceptions
-from redis.commands.search.field import TagField, TextField, VectorField
-from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+from redisvl.index import AsyncSearchIndex
+from redisvl.schema import IndexSchema, StorageType  # noqa: F401 — re-exported for callers
 
 logger = logging.getLogger(__name__)
 
@@ -26,112 +25,95 @@ INDEX_NAME = "memory_idx"
 DEFAULT_DIM = 384  # Default embedding dimension
 
 
-def create_schema(embedding_dim: int = DEFAULT_DIM):
-    """
-    Create the Redis search schema for redis_memory.
+def build_index_schema(key_prefix: str, embedding_dim: int = DEFAULT_DIM) -> IndexSchema:
+    """Build a redisvl IndexSchema for the memory index.
+
+    Keys are stored as ``{key_prefix}:memory:{id}`` (JSON documents).
+    The schema defines four indexed fields:
+
+    - ``user_id`` — TagField for exact-match user scoping.
+    - ``tags``    — TagField over the tags array elements (``$.tags[*]``).
+    - ``memory``  — TextField for full-text indexing of the memory string.
+    - ``embedding`` — HNSW VectorField (FLOAT32, L2 distance).
+
+    Non-indexed fields (``conversation``, ``metadata``) are stored in the
+    JSON document but not in the RediSearch schema; they are retrieved via
+    direct JSON fetch when needed.
 
     Args:
-        embedding_dim (int): Dimension of the embedding vectors
+        key_prefix: Root key prefix (e.g. ``"nat"``). Keys will be
+            ``{key_prefix}:memory:{hex_id}``.
+        embedding_dim: Dimensionality of the embedding vectors.
 
     Returns:
-        tuple: Schema definition for Redis search
+        IndexSchema: redisvl schema ready for use with :class:`AsyncSearchIndex`.
     """
-    logger.info("Creating schema with embedding dimension: %d", embedding_dim)
+    logger.info("Building index schema with prefix=%s, dim=%d", key_prefix, embedding_dim)
 
-    embedding_field = VectorField(
-        "$.embedding",
-        "HNSW",
+    return IndexSchema.from_dict(
         {
-            "TYPE": "FLOAT32",
-            "DIM": embedding_dim,
-            "DISTANCE_METRIC": "L2",
-            "INITIAL_CAP": 100,
-            "M": 16,
-            "EF_CONSTRUCTION": 200,
-            "EF_RUNTIME": 10,
-        },
-        as_name="embedding",
+            "index": {
+                "name": INDEX_NAME,
+                # Keys are {key_prefix}:memory:{id}; the redisvl prefix covers
+                # exactly that namespace when combined with the ":" separator.
+                "prefix": f"{key_prefix}:memory",
+                "key_separator": ":",
+                "storage_type": "json",
+            },
+            "fields": [
+                # TagField — exact-match filter (no stemming/tokenisation).
+                # redisvl auto-derives the JSON path as "$.user_id" for JSON storage.
+                {"name": "user_id", "type": "tag"},
+                # Array TagField — explicit path required for JSONPath wildcard.
+                {"name": "tags", "type": "tag", "path": "$.tags[*]"},
+                # TextField — full-text search over the memory string.
+                {"name": "memory", "type": "text"},
+                # HNSW VectorField — approximate nearest-neighbour search.
+                {
+                    "name": "embedding",
+                    "type": "vector",
+                    "attrs": {
+                        "algorithm": "hnsw",
+                        "datatype": "float32",
+                        "dims": embedding_dim,
+                        "distance_metric": "l2",
+                        "initial_cap": 100,
+                        "m": 16,
+                        "ef_construction": 200,
+                        "ef_runtime": 10,
+                    },
+                },
+            ],
+        }
     )
-    logger.info("Created embedding field with dimension %d", embedding_dim)
-
-    schema = (
-        # Redis search can't directly index complex objects (e.g. conversation and metadata) in return_fields
-        # They need to be retrieved via json().get() for full object access.
-        # TagField is used for user_id to ensure exact-match filtering without stemming.
-        TagField("$.user_id", as_name="user_id"),
-        TagField("$.tags[*]", as_name="tags"),
-        TextField("$.memory", as_name="memory"),
-        embedding_field,
-    )
-
-    # Log the schema details
-    logger.info("Schema fields:")
-    for field in schema:
-        logger.info("  - %s: %s", field.name, type(field).__name__)
-
-    return schema
 
 
-async def ensure_index_exists(client: redis.Redis, key_prefix: str, embedding_dim: int | None) -> None:
-    """
-    Ensure the Redis search index exists, creating it if necessary.
+async def ensure_index_exists(
+    client: redis.Redis,
+    key_prefix: str,
+    embedding_dim: int | None,
+) -> AsyncSearchIndex:
+    """Ensure the RediSearch index exists, creating it if necessary.
+
+    Uses redisvl's :class:`AsyncSearchIndex` which calls ``FT.CREATE`` only
+    when the index is absent (``overwrite=False`` is a no-op if the index
+    already exists with the correct schema).
 
     Args:
-        client (redis.Redis): Redis client instance
-        key_prefix (str): Prefix for keys to be indexed
-        embedding_dim (Optional[int]): Dimension of embedding vectors. If None, uses default.
+        client: An already-connected async redis-py client.
+        key_prefix: Root key prefix passed to :func:`build_index_schema`.
+        embedding_dim: Embedding dimension. If ``None``, falls back to
+            :data:`DEFAULT_DIM`.
+
+    Returns:
+        AsyncSearchIndex: The redisvl index, wired to the supplied *client*.
     """
-    try:
-        # Check if index exists
-        logger.info("Checking if index '%s' exists...", INDEX_NAME)
-        info = await client.ft(INDEX_NAME).info()
-        logger.info("Redis search index '%s' exists.", INDEX_NAME)
+    dim = embedding_dim or DEFAULT_DIM
+    schema = build_index_schema(key_prefix, dim)
+    # Pass redis_client directly to __init__ (preferred over the deprecated set_client).
+    index = AsyncSearchIndex(schema=schema, redis_client=client)
 
-        # Verify the schema
-        schema = info.get("attributes", [])
-
-        return
-    except redis_exceptions.ResponseError as ex:
-        error_msg = str(ex)
-        if "no such index" not in error_msg.lower() and "Index needs recreation" not in error_msg:
-            logger.error("Unexpected Redis error: %s", error_msg)
-            raise
-
-        # Index doesn't exist or needs recreation
-        logger.info("Creating Redis search index '%s' with prefix '%s'", INDEX_NAME, key_prefix)
-
-        # Drop any existing index
-        try:
-            logger.info("Attempting to drop existing index '%s' if it exists", INDEX_NAME)
-            await client.ft(INDEX_NAME).dropindex()
-            logger.info("Successfully dropped existing index '%s'", INDEX_NAME)
-        except redis_exceptions.ResponseError as e:
-            if "no such index" not in str(e).lower():
-                logger.warning("Error while dropping index: %s", str(e))
-
-        # Create new schema and index
-        schema = create_schema(embedding_dim or DEFAULT_DIM)
-        logger.info("Created schema with embedding dimension: %d", embedding_dim or DEFAULT_DIM)
-
-        try:
-            # Create the index
-            logger.info("Creating new index '%s' with schema", INDEX_NAME)
-            await client.ft(INDEX_NAME).create_index(
-                schema, definition=IndexDefinition(prefix=[f"{key_prefix}:"], index_type=IndexType.JSON)
-            )
-
-            # Verify index was created
-            info = await client.ft(INDEX_NAME).info()
-            logger.info("Successfully created Redis search index '%s'", INDEX_NAME)
-            logger.debug("Redis search index info: %s", info)
-
-            # Verify the schema
-            schema = info.get("attributes", [])
-            logger.debug("New index schema: %s", schema)
-
-        except redis_exceptions.ResponseError as e:
-            logger.error("Failed to create index: %s", str(e))
-            raise
-        except redis_exceptions.ConnectionError as e:
-            logger.error("Redis connection error while creating index: %s", str(e))
-            raise
+    # create(overwrite=False) is a no-op when the index already exists.
+    await index.create(overwrite=False)
+    logger.info("Index '%s' is ready (prefix=%s, dim=%d)", INDEX_NAME, key_prefix, dim)
+    return index

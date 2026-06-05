@@ -82,7 +82,7 @@ class RedisObjectStore(ObjectStore):
         if not self._client:
             raise RuntimeError("Connection not established")
 
-        await self._client.close()
+        await self._client.aclose()
         self._client = None
 
     def _make_key(self, key: str) -> str:
