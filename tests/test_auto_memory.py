@@ -290,7 +290,7 @@ async def test_register_builds_function_for_chat_request_inner_agents(
 
     with (
         patch(
-            "nvidia_nat_redis.redis_agent_memory.auto_memory.register.create_agent_memory_client",
+            "nvidia_nat_redis.redis_agent_memory.auto_memory.register.create_memory_client",
             new=AsyncMock(return_value=client),
         ),
         patch(
@@ -328,7 +328,7 @@ async def test_register_wraps_ams_client_with_retry(
 
     with (
         patch(
-            "nvidia_nat_redis.redis_agent_memory.auto_memory.register.create_agent_memory_client",
+            "nvidia_nat_redis.redis_agent_memory.auto_memory.register.create_memory_client",
             new=AsyncMock(return_value=client),
         ),
         patch(

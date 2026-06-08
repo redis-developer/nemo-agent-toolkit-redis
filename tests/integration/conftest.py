@@ -48,7 +48,8 @@ def _wait_for_http(url: str, timeout_seconds: float = 90.0) -> None:
 
 
 async def _prime_long_term_search_index(ams_url: str) -> None:
-    from nvidia_nat_redis.redis_agent_memory.client_factory import create_agent_memory_client
+    from agent_memory_client import create_memory_client
+
     from nvidia_nat_redis.redis_agent_memory.memory import RedisAgentMemoryBackendConfig
 
     config = RedisAgentMemoryBackendConfig(
@@ -56,7 +57,13 @@ async def _prime_long_term_search_index(ams_url: str) -> None:
         default_namespace="__bootstrap__",
         timeout=30.0,
     )
-    client = await create_agent_memory_client(config)
+    client = await create_memory_client(
+        base_url=config.base_url,
+        timeout=config.timeout,
+        default_namespace=config.default_namespace,
+        default_model_name=config.default_model_name,
+        default_context_window_max=config.default_context_window_max,
+    )
     try:
         await client.search_long_term_memory(
             text="bootstrap long term search index",
