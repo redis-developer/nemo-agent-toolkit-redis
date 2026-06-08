@@ -29,10 +29,10 @@ from uuid import uuid4
 import pytest
 import redis.asyncio as aioredis
 import redis.exceptions as redis_exceptions
+from nat.memory.models import MemoryItem
 from redisvl.index import AsyncSearchIndex
 from redisvl.schema import IndexSchema
 
-from nat.memory.models import MemoryItem
 from nat.plugins.redis.redis_editor import RedisEditor
 
 # ---------------------------------------------------------------------------

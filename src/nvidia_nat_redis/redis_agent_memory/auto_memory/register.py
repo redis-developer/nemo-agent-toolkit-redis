@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
+from agent_memory_client import create_memory_client
 from nat.builder.builder import Builder
 from nat.builder.function_info import FunctionInfo
 from nat.cli.register_workflow import register_function
 from nat.data_models.api_server import ChatRequest, ChatRequestOrMessage, ChatResponse
-from agent_memory_client import create_memory_client
 from nat.utils.exception_handlers.automatic_retries import patch_with_retry
 
 from ..memory import RedisAgentMemoryBackendConfig

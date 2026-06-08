@@ -8,10 +8,9 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from agent_memory_client import create_memory_client
 from nat.memory.models import MemoryItem
 from nat.utils import run_workflow
-
-from agent_memory_client import create_memory_client
 
 from nvidia_nat_redis.redis_agent_memory import RedisAgentMemoryEditor
 from nvidia_nat_redis.redis_agent_memory.memory import RedisAgentMemoryBackendConfig

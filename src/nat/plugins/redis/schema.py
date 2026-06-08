@@ -15,9 +15,10 @@
 
 import logging
 
-import redis.asyncio as redis
 from redisvl.index import AsyncSearchIndex
 from redisvl.schema import IndexSchema, StorageType  # noqa: F401 — re-exported for callers
+
+import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
 

@@ -30,7 +30,6 @@ workflow tests if ``OPENAI_API_KEY`` is not set.
 from __future__ import annotations
 
 import asyncio
-import os
 from pathlib import Path
 from textwrap import dedent
 from urllib.parse import urlparse
@@ -38,11 +37,11 @@ from urllib.parse import urlparse
 import pytest
 import redis.asyncio as aioredis
 import redis.exceptions as redis_exceptions
+from nat.memory.models import MemoryItem
 from redisvl.index import AsyncSearchIndex
 from redisvl.schema import IndexSchema
 from redisvl.utils.vectorize import CustomVectorizer
 
-from nat.memory.models import MemoryItem
 from nat.plugins.redis.redis_editor import RedisEditor
 from nat.plugins.redis.schema import INDEX_NAME, ensure_index_exists
 
@@ -256,9 +255,9 @@ async def test_redis_memory_type_registered_in_nat() -> None:
     """``redis_memory`` must appear in NAT's global type registry so developers
     can reference ``_type: redis_memory`` in YAML workflow configs.
     """
-    import nat.plugins.redis.register  # noqa: F401 — triggers entry-point side-effects
-
     from nat.cli.type_registry import GlobalTypeRegistry
+
+    import nat.plugins.redis.register  # noqa: F401 — triggers entry-point side-effects
 
     registered = GlobalTypeRegistry.get().get_registered_memorys()
     assert any(r.local_name == "redis_memory" for r in registered), (
