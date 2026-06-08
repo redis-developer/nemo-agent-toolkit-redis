@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
+from agent_memory_client import create_memory_client
 from nat.builder.builder import Builder
 from nat.builder.function_info import FunctionInfo
 from nat.cli.register_workflow import register_function
 from nat.data_models.api_server import ChatRequest, ChatRequestOrMessage, ChatResponse
 from nat.utils.exception_handlers.automatic_retries import patch_with_retry
 
-from ..client_factory import create_agent_memory_client
 from ..memory import RedisAgentMemoryBackendConfig
 from .config import RedisAgentMemoryAutoMemoryConfig
 from .service import RedisAgentMemoryAutoMemoryService
@@ -56,7 +56,13 @@ async def redis_agent_memory_auto_memory(
     inner_agent = await builder.get_function(config.inner_agent_name)
     _validate_inner_agent_input_schema(inner_agent.input_schema)
 
-    client = await create_agent_memory_client(memory_config)
+    client = await create_memory_client(
+        base_url=memory_config.base_url,
+        timeout=memory_config.timeout,
+        default_namespace=memory_config.default_namespace,
+        default_model_name=memory_config.default_model_name,
+        default_context_window_max=memory_config.default_context_window_max,
+    )
     service_client = client
     if memory_config.do_auto_retry:
         service_client = patch_with_retry(

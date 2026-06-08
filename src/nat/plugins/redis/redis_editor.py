@@ -16,247 +16,209 @@
 import logging
 import secrets
 
-import numpy as np
-from langchain_core.embeddings import Embeddings
 from nat.memory.interfaces import MemoryEditor
 from nat.memory.models import MemoryItem
-
-import redis.asyncio as redis
-import redis.exceptions as redis_exceptions
-from redis.commands.search.query import Query
+from redisvl.index import AsyncSearchIndex
+from redisvl.query import VectorQuery
+from redisvl.query.filter import Tag
 
 logger = logging.getLogger(__name__)
-
-INDEX_NAME = "memory_idx"
 
 
 class RedisEditor(MemoryEditor):
     """
-    Wrapper class that implements NAT interfaces for Redis memory storage.
+    Implements the NAT MemoryEditor interface for direct Redis memory storage.
+
+    Uses redisvl's :class:`AsyncSearchIndex` for all index-level operations
+    (create, load, vector search, clear).  Falls back to the underlying
+    redis-py client (via ``index.client``) for full JSON document retrieval
+    of non-indexed fields (``conversation`` and ``metadata``), which redisvl
+    does not expose through a higher-level abstraction.
     """
 
-    def __init__(self, redis_client: redis.Redis, key_prefix: str, embedder: Embeddings):
+    def __init__(self, index: AsyncSearchIndex, embedder) -> None:
         """
-        Initialize Redis client for memory storage.
-
         Args:
-            redis_client: (redis.Redis) Redis client
-            key_prefix: (str) Redis key prefix
-            embedder: (Embeddings) Embedder for semantic search functionality
+            index: A fully initialised :class:`AsyncSearchIndex` pointing at
+                the memory index.  The index's schema prefix must follow the
+                convention ``{key_prefix}:memory`` (set by
+                :func:`.schema.ensure_index_exists`).
+            embedder: Any object that implements ``aembed_query(text) ->
+                list[float]``.  Typically a LangChain ``Embeddings`` instance
+                or a redisvl ``CustomVectorizer`` adapter.
         """
+        self._index = index
+        self._embedder = embedder
 
-        self._client: redis.Redis = redis_client
-        self._key_prefix: str = key_prefix
-        self._embedder: Embeddings = embedder
+        # Derive the root key prefix from the schema.
+        # schema.index.prefix == "{key_prefix}:memory"  with separator ":"
+        schema_prefix = self._index.schema.index.prefix
+        sep = self._index.schema.index.key_separator
+        memory_suffix = f"{sep}memory"
+        self._key_prefix = (
+            schema_prefix[: -len(memory_suffix)] if schema_prefix.endswith(memory_suffix) else schema_prefix
+        )
+
+    # ------------------------------------------------------------------
+    # MemoryEditor interface
+    # ------------------------------------------------------------------
 
     async def add_items(self, items: list[MemoryItem]) -> None:
+        """Insert multiple MemoryItems into Redis.
+
+        For items that carry a ``memory`` string, an embedding vector is
+        computed and stored alongside the document so that vector search works.
+        Items with only a ``conversation`` (no ``memory``) are stored without
+        an embedding and will not appear in KNN search results.
+
+        Documents are loaded via :meth:`AsyncSearchIndex.load` (redisvl),
+        which serialises each dict as a JSON document and notifies RediSearch
+        to index it automatically.
         """
-        Insert Multiple MemoryItems into Redis.
-        Each MemoryItem is stored with its metadata and tags.
-        """
-        logger.debug("Attempting to add %d items to Redis", len(items))
+        logger.debug("Attempting to add %d items", len(items))
 
         for memory_item in items:
-            item_meta = memory_item.metadata
-            conversation = memory_item.conversation
-            user_id = memory_item.user_id
-            tags = memory_item.tags
-            memory_id = secrets.token_hex(4)  # e.g. 02ba3fe9
-
-            # Create a unique key for this memory item
+            memory_id = secrets.token_hex(4)
             memory_key = f"{self._key_prefix}:memory:{memory_id}"
-            logger.debug("Generated memory key: %s", memory_key)
 
-            # Prepare memory data
-            memory_data = {
-                "conversation": conversation,
-                "user_id": user_id,
-                "tags": tags,
-                "metadata": item_meta,
+            doc: dict = {
+                "conversation": memory_item.conversation,
+                "user_id": memory_item.user_id,
+                "tags": memory_item.tags,
+                "metadata": memory_item.metadata,
                 "memory": memory_item.memory or "",
             }
-            logger.debug("Prepared memory data for key %s", memory_key)
 
-            # If we have memory, compute and store the embedding
             if memory_item.memory:
                 logger.debug("Computing embedding for memory text")
-                search_vector = await self._embedder.aembed_query(memory_item.memory)
-                logger.debug("Generated embedding vector of length: %d", len(search_vector))
-                memory_data["embedding"] = search_vector
+                doc["embedding"] = await self._embedder.aembed_query(memory_item.memory)
 
             try:
-                # Store as JSON in Redis
-                logger.debug("Attempting to store memory data in Redis for key: %s", memory_key)
-                await self._client.json().set(memory_key, "$", memory_data)
-                logger.debug("Successfully stored memory data for key: %s", memory_key)
-
-                # Verify the data was stored
-                stored_data = await self._client.json().get(memory_key)
-                logger.debug("Verified data storage for key %s: %s", memory_key, bool(stored_data))
-
-            except redis_exceptions.ResponseError as e:
+                # load() stores the document as a JSON key and triggers
+                # RediSearch auto-indexing for the declared schema fields.
+                await self._index.load([doc], keys=[memory_key])
+                logger.debug("Stored memory at %s", memory_key)
+            except Exception as e:
                 logger.error("Failed to store memory item: %s", e)
-                raise
-            except redis_exceptions.ConnectionError as e:
-                logger.error("Redis connection error while storing memory item: %s", e)
                 raise
 
     async def search(self, query: str, top_k: int = 5, **kwargs) -> list[MemoryItem]:
-        """
-        Retrieve items relevant to the given query.
+        """Retrieve items relevant to *query* via HNSW KNN vector search.
 
         Args:
-            query (str): The query string to match.
-            top_k (int): Maximum number of items to return.
-            kwargs (dict): Keyword arguments to pass to the search method.
-
-                - user_id (str): User ID for filtering results.
-                - similarity_threshold (float, optional): Maximum similarity score threshold
-                  based on L2 (Euclidean) distance metric. Results with scores above this threshold
-                  are filtered out; if not specified, all top_k results are returned.
-                  Lower scores indicate higher similarity (0.0 = identical). Typical ranges:
-                  0.0-0.5 (very similar), 0.5-1.0 (moderately similar), >1.0 (loosely related).
+            query: The query string whose embedding is compared against stored
+                memory embeddings.
+            top_k: Maximum number of candidates to return from the KNN step.
+            kwargs:
+                - ``user_id`` (str): Scope results to a specific user.  When
+                  absent, falls back to the literal string ``"redis"``.
+                - ``similarity_threshold`` (float | None): Maximum L2 distance
+                  to accept.  Results with ``vector_distance > threshold`` are
+                  filtered out.  Lower is more similar (0.0 = identical).
 
         Returns:
-            list[MemoryItem]: The most relevant MemoryItems for the given query.
+            list[MemoryItem]: Matching items, ordered by ascending L2 distance.
         """
-        logger.debug("Search called with query: %s, top_k: %d, kwargs: %s", query, top_k, kwargs)
-
-        user_id = kwargs.get("user_id", "redis")  # TODO: remove this fallback username
+        user_id = kwargs.get("user_id", "redis")
         similarity_threshold = kwargs.get("similarity_threshold", None)
-        logger.debug("Using user_id: %s, similarity_threshold: %s", user_id, similarity_threshold)
 
-        # Perform vector search using Redis search
-        logger.debug("Using embedder for vector search")
+        logger.debug("search: query=%r top_k=%d user_id=%s", query, top_k, user_id)
+
         try:
-            logger.debug("Generating embedding for query: '%s'", query)
             query_vector = await self._embedder.aembed_query(query)
-            logger.debug("Generated embedding vector of length: %d", len(query_vector))
         except Exception as e:
             logger.error("Failed to generate embedding: %s", e)
             raise
 
-        # Create vector search query; escape special characters in user_id
-        escaped_user_id = user_id.replace("\\", "\\\\").replace('"', '\\"')
-        search_query = (
-            Query(f'(@user_id:"{escaped_user_id}")=>[KNN {top_k} @embedding $vec AS score]')
-            .sort_by("score")
-            .return_fields("conversation", "user_id", "tags", "metadata", "memory", "score")
-            .dialect(2)
+        # Tag filter for exact user_id scoping — no stemming or tokenisation.
+        filter_expr = Tag("user_id") == user_id
+
+        vq = VectorQuery(
+            vector=query_vector,
+            vector_field_name="embedding",
+            # Only request indexed scalar fields here.  Non-indexed fields
+            # (conversation, metadata) are fetched separately below.
+            return_fields=["user_id", "memory", "tags"],
+            filter_expression=filter_expr,
+            num_results=top_k,
+            return_score=True,  # includes "vector_distance" in each result
+            dtype="float32",
         )
-        logger.debug("Created search query: %s", search_query)
-        logger.debug("Query string: %s", search_query.query_string())
-
-        # Convert query vector to bytes
-        try:
-            logger.debug("Converting query vector to bytes")
-            query_vector_bytes = np.array(query_vector, dtype=np.float32).tobytes()
-            logger.debug("Converted vector to bytes of length: %d", len(query_vector_bytes))
-        except Exception as e:
-            logger.error("Failed to convert vector to bytes: %s", e)
-            raise
 
         try:
-            # Execute search with vector parameters
-            logger.debug("Executing Redis search with vector parameters")
-            logger.debug("Search query parameters: vec length=%d", len(query_vector_bytes))
-
-            # Log the actual query being executed
-            logger.debug("Full search query: %s", search_query.query_string())
-
-            # Check if there are any documents in the index
-            try:
-                total_docs = await self._client.ft(INDEX_NAME).info()
-                logger.debug("Total documents in index: %d", total_docs.get("num_docs", 0))
-            except Exception as e:
-                logger.exception("Failed to get index info: %s", e)
-
-            # Execute the search
-            results = await self._client.ft(INDEX_NAME).search(search_query, query_params={"vec": query_vector_bytes})
-
-            # Log detailed results information
-            logger.debug("Search returned %d results", len(results.docs))
-            logger.debug("Total results found: %d", results.total)
-
-            # Convert results to MemoryItems
-            memories = []
-            for i, doc in enumerate(results.docs):
-                try:
-                    logger.debug("Processing result %d/%d", i + 1, len(results.docs))
-
-                    # Extract similarity score
-                    similarity_score = float(getattr(doc, "score", 0.0))
-                    logger.debug("Similarity score: %.4f", similarity_score)
-
-                    # Apply similarity threshold filtering if specified
-                    if similarity_threshold is not None and similarity_score > similarity_threshold:
-                        logger.debug(
-                            "Filtering out result %d due to score %.4f > threshold %.4f",
-                            i + 1,
-                            similarity_score,
-                            similarity_threshold,
-                        )
-                        continue
-
-                    # Get the full document data
-                    full_doc = await self._client.json().get(doc.id)
-                    logger.debug("Extracted data for result %d: %s", i + 1, full_doc)
-                    memory_item = self._create_memory_item(dict(full_doc), user_id, similarity_score)
-                    memories.append(memory_item)
-                    logger.debug("Successfully created MemoryItem for result %d", i + 1)
-                except Exception as e:
-                    logger.error("Failed to process result %d: %s", i + 1, e)
-                    raise
-
-            logger.debug("Successfully processed %d results (filtered from %d)", len(memories), len(results.docs))
-            return memories
-        except redis_exceptions.ResponseError as e:
-            logger.error("Search failed with ResponseError: %s", e)
-            raise
-        except redis_exceptions.ConnectionError as e:
-            logger.error("Search failed with ConnectionError: %s", e)
-            raise
+            hits = await self._index.query(vq)
         except Exception as e:
-            logger.error("Unexpected error during search: %s", e)
+            logger.error("Search failed: %s", e)
             raise
 
-    def _create_memory_item(self, memory_data: dict, user_id: str, similarity_score: float | None = None) -> MemoryItem:
-        """Helper method to create a MemoryItem from Redis data."""
-        # Ensure tags is always a list
-        tags = memory_data.get("tags", [])
-        # Not sure why but sometimes the tags are retrieved as a string
+        logger.debug("KNN returned %d hits (total)", len(hits))
+
+        # Precompute the prefix+separator string for extracting document IDs.
+        prefix_sep = self._index.schema.index.prefix + self._index.schema.index.key_separator
+
+        memories: list[MemoryItem] = []
+        for hit in hits:
+            score = float(hit.get("vector_distance", 0.0))
+
+            if similarity_threshold is not None and score > similarity_threshold:
+                logger.debug("Filtered hit (score %.4f > threshold %.4f)", score, similarity_threshold)
+                continue
+
+            # Fetch the full JSON document to retrieve non-indexed fields
+            # (conversation, metadata).  redisvl's AsyncSearchIndex.fetch()
+            # reads the complete JSON value; the underlying transport is
+            # redis-py's json().get(), kept here because redisvl's query()
+            # only returns schema-declared fields.
+            doc_id = hit["id"][len(prefix_sep) :]
+            full_doc = await self._index.fetch(doc_id)
+
+            if full_doc is None:
+                logger.warning("Document %s not found during full fetch", hit["id"])
+                continue
+
+            memories.append(self._create_memory_item(full_doc, user_id, score))
+
+        logger.debug("Returning %d memory items after filtering", len(memories))
+        return memories
+
+    async def remove_items(self, **kwargs) -> None:
+        """Remove all memory items stored under this editor's key prefix.
+
+        Uses :meth:`AsyncSearchIndex.clear`, which deletes every document
+        tracked by the RediSearch index in batches.  Non-indexed keys under
+        the same prefix (if any) are left untouched.
+
+        The ``**kwargs`` API is preserved for interface compatibility; they are
+        not used by this implementation (removal is always prefix-wide).
+        """
+        try:
+            await self._index.clear()
+        except Exception as e:
+            logger.error("Failed to remove items: %s", e)
+            raise
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _create_memory_item(
+        self,
+        data: dict,
+        user_id: str,
+        similarity_score: float | None = None,
+    ) -> MemoryItem:
+        """Construct a MemoryItem from a raw JSON document dict."""
+        tags = data.get("tags", [])
         if isinstance(tags, str):
             tags = [tags]
         elif not isinstance(tags, list):
             tags = []
 
         return MemoryItem(
-            conversation=memory_data.get("conversation", []),
+            conversation=data.get("conversation", []),
             user_id=user_id,
-            memory=memory_data.get("memory", ""),
+            memory=data.get("memory", ""),
             tags=tags,
-            metadata=memory_data.get("metadata", {}),
+            metadata=data.get("metadata", {}),
             similarity_score=similarity_score,
         )
-
-    async def remove_items(self, **kwargs):
-        """
-        Remove memory items based on provided criteria.
-        """
-        try:
-            pattern = f"{self._key_prefix}:memory:*"
-            batch_size = 500
-            batch = []
-            async for key in self._client.scan_iter(match=pattern, count=batch_size):
-                batch.append(key)
-                if len(batch) >= batch_size:
-                    await self._client.unlink(*batch)
-                    batch.clear()
-            if batch:
-                await self._client.unlink(*batch)
-        except redis_exceptions.ResponseError as e:
-            logger.error("Failed to remove items: %s", e)
-            raise
-        except redis_exceptions.ConnectionError as e:
-            logger.error("Redis connection error while removing items: %s", e)
-            raise

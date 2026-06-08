@@ -16,10 +16,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from testcontainers.compose import DockerCompose
-
-from nvidia_nat_redis.redis_agent_memory.client_factory import create_agent_memory_client
-from nvidia_nat_redis.redis_agent_memory.memory import RedisAgentMemoryBackendConfig
 
 
 def _docker_ready() -> tuple[bool, str]:
@@ -52,12 +48,22 @@ def _wait_for_http(url: str, timeout_seconds: float = 90.0) -> None:
 
 
 async def _prime_long_term_search_index(ams_url: str) -> None:
+    from agent_memory_client import create_memory_client
+
+    from nvidia_nat_redis.redis_agent_memory.memory import RedisAgentMemoryBackendConfig
+
     config = RedisAgentMemoryBackendConfig(
         base_url=ams_url,
         default_namespace="__bootstrap__",
         timeout=30.0,
     )
-    client = await create_agent_memory_client(config)
+    client = await create_memory_client(
+        base_url=config.base_url,
+        timeout=config.timeout,
+        default_namespace=config.default_namespace,
+        default_model_name=config.default_model_name,
+        default_context_window_max=config.default_context_window_max,
+    )
     try:
         await client.search_long_term_memory(
             text="bootstrap long term search index",
@@ -68,6 +74,46 @@ async def _prime_long_term_search_index(ams_url: str) -> None:
         )
     finally:
         await client.close()
+
+
+@pytest.fixture(scope="session")
+def local_redis_url() -> str:
+    return os.environ.get("REDIS_URL", "redis://localhost:6379")
+
+
+@pytest.fixture(scope="session")
+def local_redis_params(local_redis_url: str) -> tuple[str, int]:
+    from urllib.parse import urlparse
+
+    parsed = urlparse(local_redis_url)
+    return parsed.hostname or "127.0.0.1", parsed.port or 6379
+
+
+@pytest.fixture(scope="session")
+def local_ams_url() -> str:
+    return os.environ.get("AMS_URL", "http://localhost:8000")
+
+
+@pytest.fixture(scope="session")
+def local_ams_stack(local_ams_url: str, local_redis_url: str) -> dict[str, str]:
+    """Session-scoped fixture connecting to a locally running AMS. Skips if not reachable."""
+    try:
+        with urllib.request.urlopen(f"{local_ams_url}/openapi.json", timeout=5) as resp:  # noqa: S310
+            if resp.status != 200:
+                pytest.skip(f"AMS not reachable at {local_ams_url}")
+    except (OSError, urllib.error.URLError) as exc:
+        pytest.skip(f"AMS not reachable at {local_ams_url}: {exc}")
+    return {"ams_url": local_ams_url, "redis_url": local_redis_url}
+
+
+@pytest.fixture(scope="session")
+def local_ams_stack_with_api(local_ams_stack: dict[str, str], openai_api_key: str) -> dict[str, str]:
+    """Session-scoped AMS fixture that also requires OPENAI_API_KEY and primes the LTM index."""
+    try:
+        asyncio.run(_prime_long_term_search_index(local_ams_stack["ams_url"]))
+    except Exception:
+        pass  # Priming is best-effort; tests will still run
+    return local_ams_stack
 
 
 @pytest.fixture(scope="session")
@@ -112,6 +158,8 @@ def _running_stack(
 
     original_env = {key: os.environ.get(key) for key in compose_env}
     os.environ.update(compose_env)
+
+    from testcontainers.compose import DockerCompose
 
     compose = DockerCompose(
         context=str(compose_dir),

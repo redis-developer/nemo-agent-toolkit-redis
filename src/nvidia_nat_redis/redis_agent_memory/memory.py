@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
+from agent_memory_client import create_memory_client
 from nat.builder.builder import Builder
 from nat.cli.register_workflow import register_memory
 from nat.data_models.memory import MemoryBaseConfig
@@ -15,7 +16,6 @@ from nat.memory.interfaces import MemoryEditor
 from nat.utils.exception_handlers.automatic_retries import patch_with_retry
 from pydantic import Field
 
-from .client_factory import create_agent_memory_client
 from .editor import RedisAgentMemoryEditor
 
 
@@ -54,7 +54,13 @@ async def redis_agent_memory_backend_client(
     :class:`RedisAgentMemoryEditor`; the client is closed when NAT exits the
     context manager.
     """
-    client = await create_agent_memory_client(config)
+    client = await create_memory_client(
+        base_url=config.base_url,
+        timeout=config.timeout,
+        default_namespace=config.default_namespace,
+        default_model_name=config.default_model_name,
+        default_context_window_max=config.default_context_window_max,
+    )
 
     try:
         editor = RedisAgentMemoryEditor(client)

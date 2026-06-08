@@ -56,8 +56,11 @@ async def redis_memory_client(config: RedisMemoryClientConfig, builder: Builder)
 
     test_embedding = await embedder.aembed_query("test")
     embedding_dim = len(test_embedding)
-    await ensure_index_exists(client=redis_client, key_prefix=config.key_prefix, embedding_dim=embedding_dim)
 
-    memory_editor = RedisEditor(redis_client=redis_client, key_prefix=config.key_prefix, embedder=embedder)
+    # ensure_index_exists returns the redisvl AsyncSearchIndex wired to the
+    # redis_client; RedisEditor uses it for all index-level operations.
+    index = await ensure_index_exists(client=redis_client, key_prefix=config.key_prefix, embedding_dim=embedding_dim)
+
+    memory_editor = RedisEditor(index=index, embedder=embedder)
 
     yield memory_editor

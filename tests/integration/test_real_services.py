@@ -8,15 +8,14 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from agent_memory_client import create_memory_client
 from nat.memory.models import MemoryItem
 from nat.utils import run_workflow
 
 from nvidia_nat_redis.redis_agent_memory import RedisAgentMemoryEditor
-from nvidia_nat_redis.redis_agent_memory.client_factory import create_agent_memory_client
 from nvidia_nat_redis.redis_agent_memory.memory import RedisAgentMemoryBackendConfig
 
 pytestmark = [
-    pytest.mark.integration,
     pytest.mark.filterwarnings(
         "ignore:get_working_memory is deprecated and will be removed in a future version.*:DeprecationWarning"
     ),
@@ -89,7 +88,7 @@ def _write_config(tmp_path: Path, filename: str, content: str) -> Path:
 
 @pytest.mark.asyncio
 async def test_working_memory_round_trip_against_real_ams(
-    ams_stack: dict[str, str],
+    local_ams_stack: dict[str, str],
     unique_suffix: str,
 ) -> None:
     namespace = f"it-working-{unique_suffix}"
@@ -97,11 +96,17 @@ async def test_working_memory_round_trip_against_real_ams(
     session_id = f"session-{unique_suffix}"
 
     config = RedisAgentMemoryBackendConfig(
-        base_url=ams_stack["ams_url"],
+        base_url=local_ams_stack["ams_url"],
         default_namespace=namespace,
         timeout=30.0,
     )
-    client = await create_agent_memory_client(config)
+    client = await create_memory_client(
+        base_url=config.base_url,
+        timeout=config.timeout,
+        default_namespace=config.default_namespace,
+        default_model_name=config.default_model_name,
+        default_context_window_max=config.default_context_window_max,
+    )
 
     try:
         created, memory = await client.get_or_create_working_memory(
@@ -138,10 +143,9 @@ async def test_working_memory_round_trip_against_real_ams(
         await client.close()
 
 
-@pytest.mark.requires_api_keys
 @pytest.mark.asyncio
 async def test_editor_round_trip_against_real_ams(
-    ams_stack_with_api: dict[str, str],
+    local_ams_stack_with_api: dict[str, str],
     unique_suffix: str,
 ) -> None:
     namespace = f"it-editor-{unique_suffix}"
@@ -150,11 +154,17 @@ async def test_editor_round_trip_against_real_ams(
     memory_text = "User prefers jasmine green tea after lunch."
 
     config = RedisAgentMemoryBackendConfig(
-        base_url=ams_stack_with_api["ams_url"],
+        base_url=local_ams_stack_with_api["ams_url"],
         default_namespace=namespace,
         timeout=30.0,
     )
-    client = await create_agent_memory_client(config)
+    client = await create_memory_client(
+        base_url=config.base_url,
+        timeout=config.timeout,
+        default_namespace=config.default_namespace,
+        default_model_name=config.default_model_name,
+        default_context_window_max=config.default_context_window_max,
+    )
     editor = RedisAgentMemoryEditor(client=client)
 
     try:
@@ -199,10 +209,9 @@ async def test_editor_round_trip_against_real_ams(
         await client.close()
 
 
-@pytest.mark.requires_api_keys
 @pytest.mark.asyncio
 async def test_auto_memory_workflow_round_trip_with_openai(
-    ams_stack_with_api: dict[str, str],
+    local_ams_stack_with_api: dict[str, str],
     openai_api_key: str,
     openai_model_name: str,
     tmp_path: Path,
@@ -240,7 +249,7 @@ async def test_auto_memory_workflow_round_trip_with_openai(
         memory:
           redis_ltm:
             _type: redis_agent_memory_backend
-            base_url: {ams_stack_with_api["ams_url"]}
+            base_url: {local_ams_stack_with_api["ams_url"]}
             default_namespace: {namespace}
 
         workflow:
@@ -279,10 +288,9 @@ async def test_auto_memory_workflow_round_trip_with_openai(
     assert "oolong" in second.lower()
 
 
-@pytest.mark.requires_api_keys
 @pytest.mark.asyncio
 async def test_tool_based_workflow_uses_real_memory_tools_with_openai(
-    ams_stack_with_api: dict[str, str],
+    local_ams_stack_with_api: dict[str, str],
     openai_api_key: str,
     openai_model_name: str,
     tmp_path: Path,
@@ -313,7 +321,7 @@ async def test_tool_based_workflow_uses_real_memory_tools_with_openai(
         memory:
           redis_memory:
             _type: redis_agent_memory_backend
-            base_url: {ams_stack_with_api["ams_url"]}
+            base_url: {local_ams_stack_with_api["ams_url"]}
             default_namespace: {namespace}
 
         functions:
