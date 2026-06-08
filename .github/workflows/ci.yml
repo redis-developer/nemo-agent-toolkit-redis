@@ -34,6 +34,16 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
+    services:
+      redis:
+        image: redis/redis-stack:7.4.0-v3
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -70,6 +80,16 @@ jobs:
 
   integration:
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis/redis-stack:7.4.0-v3
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -89,6 +109,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NAT_OPENAI_MODEL: ${{ vars.NAT_OPENAI_MODEL || 'gpt-4o-mini' }}
+    services:
+      redis:
+        image: redis/redis-stack:7.4.0-v3
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -136,6 +166,16 @@ jobs:
       fail-fast: false
       matrix:
         nat-core: ["~=1.6.0", "~=1.7.0"]
+    services:
+      redis:
+        image: redis/redis-stack:7.4.0-v3
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
