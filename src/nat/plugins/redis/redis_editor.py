@@ -24,9 +24,6 @@ from redisvl.query.filter import Tag
 
 logger = logging.getLogger(__name__)
 
-# Kept as a module constant so callers that import INDEX_NAME from redis_editor
-# still work, even though schema.py is the canonical definition.
-
 
 class RedisEditor(MemoryEditor):
     """
