@@ -84,6 +84,7 @@ def local_redis_url() -> str:
 @pytest.fixture(scope="session")
 def local_redis_params(local_redis_url: str) -> tuple[str, int]:
     from urllib.parse import urlparse
+
     parsed = urlparse(local_redis_url)
     return parsed.hostname or "127.0.0.1", parsed.port or 6379
 

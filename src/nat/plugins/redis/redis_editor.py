@@ -59,9 +59,7 @@ class RedisEditor(MemoryEditor):
         sep = self._index.schema.index.key_separator
         memory_suffix = f"{sep}memory"
         self._key_prefix = (
-            schema_prefix[: -len(memory_suffix)]
-            if schema_prefix.endswith(memory_suffix)
-            else schema_prefix
+            schema_prefix[: -len(memory_suffix)] if schema_prefix.endswith(memory_suffix) else schema_prefix
         )
 
     # ------------------------------------------------------------------
@@ -159,9 +157,7 @@ class RedisEditor(MemoryEditor):
         logger.debug("KNN returned %d hits (total)", len(hits))
 
         # Precompute the prefix+separator string for extracting document IDs.
-        prefix_sep = (
-            self._index.schema.index.prefix + self._index.schema.index.key_separator
-        )
+        prefix_sep = self._index.schema.index.prefix + self._index.schema.index.key_separator
 
         memories: list[MemoryItem] = []
         for hit in hits:
@@ -176,7 +172,7 @@ class RedisEditor(MemoryEditor):
             # reads the complete JSON value; the underlying transport is
             # redis-py's json().get(), kept here because redisvl's query()
             # only returns schema-declared fields.
-            doc_id = hit["id"][len(prefix_sep):]
+            doc_id = hit["id"][len(prefix_sep) :]
             full_doc = await self._index.fetch(doc_id)
 
             if full_doc is None:

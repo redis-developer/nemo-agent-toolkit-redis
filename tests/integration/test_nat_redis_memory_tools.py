@@ -60,23 +60,23 @@ from nat.plugins.redis.schema import INDEX_NAME, ensure_index_exists
 EMBEDDING_DIM = 6
 
 VEC_ALLERGY = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # "User is allergic to peanuts"
-VEC_TRAVEL  = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]  # "User prefers window seats on flights"
-VEC_CODING  = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]  # "User's favourite language is Python"
-VEC_COFFEE  = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]  # "User drinks espresso every morning"
-VEC_MUSIC   = [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]  # "User is learning to play the guitar"
+VEC_TRAVEL = [0.0, 1.0, 0.0, 0.0, 0.0, 0.0]  # "User prefers window seats on flights"
+VEC_CODING = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]  # "User's favourite language is Python"
+VEC_COFFEE = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0]  # "User drinks espresso every morning"
+VEC_MUSIC = [0.0, 0.0, 0.0, 0.0, 1.0, 0.0]  # "User is learning to play the guitar"
 VEC_DEFAULT = [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]  # fallback for any unmapped text
 
 QUERY_ALLERGY = "Does the user have any food allergies?"
-QUERY_COFFEE  = "What does the user drink in the morning?"
+QUERY_COFFEE = "What does the user drink in the morning?"
 
 _TEXT_TO_VEC: dict[str, list[float]] = {
-    "User is allergic to peanuts":             VEC_ALLERGY,
-    "User prefers window seats on flights":    VEC_TRAVEL,
-    "User's favourite language is Python":     VEC_CODING,
-    "User drinks espresso every morning":      VEC_COFFEE,
-    "User is learning to play the guitar":     VEC_MUSIC,
-    QUERY_ALLERGY:                             VEC_ALLERGY,
-    QUERY_COFFEE:                              VEC_COFFEE,
+    "User is allergic to peanuts": VEC_ALLERGY,
+    "User prefers window seats on flights": VEC_TRAVEL,
+    "User's favourite language is Python": VEC_CODING,
+    "User drinks espresso every morning": VEC_COFFEE,
+    "User is learning to play the guitar": VEC_MUSIC,
+    QUERY_ALLERGY: VEC_ALLERGY,
+    QUERY_COFFEE: VEC_COFFEE,
 }
 
 
@@ -93,6 +93,7 @@ def _embed(text: str) -> list[float]:
 # Adapter: bridges redisvl's CustomVectorizer to RedisEditor's LangChain-style
 # Embeddings interface (aembed_query / aembed_documents).
 # ---------------------------------------------------------------------------
+
 
 class _VectorizerEmbedder:
     """Wraps a ``CustomVectorizer`` to satisfy ``RedisEditor``'s embedder interface.
@@ -121,6 +122,7 @@ class _VectorizerEmbedder:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _build_index_schema(key_prefix: str, embedding_dim: int = EMBEDDING_DIM) -> IndexSchema:
     """Build a redisvl IndexSchema for test fixtures.
@@ -194,7 +196,6 @@ def vectorizer() -> CustomVectorizer:
     ``embed`` callable is passed to ``CustomVectorizer``; no external API needed.
     """
     return CustomVectorizer(embed=_embed)
-
 
 
 @pytest.fixture()
@@ -354,10 +355,7 @@ async def test_redis_editor_add_multiple_items_stores_all(
     unique_suffix: str,
 ) -> None:
     """``add_items`` with a batch writes one Redis key per item."""
-    items = [
-        MemoryItem(user_id=f"user_{unique_suffix}", memory=f"Fact number {i}", tags=[f"tag{i}"])
-        for i in range(3)
-    ]
+    items = [MemoryItem(user_id=f"user_{unique_suffix}", memory=f"Fact number {i}", tags=[f"tag{i}"]) for i in range(3)]
 
     await redis_editor.add_items(items)
 
@@ -424,10 +422,12 @@ async def test_redis_editor_search_returns_stored_items(
 ) -> None:
     """KNN search returns all items stored for the given user."""
     user_id = f"user_{unique_suffix}"
-    await redis_editor.add_items([
-        MemoryItem(user_id=user_id, memory="User likes coffee", tags=["beverage"]),
-        MemoryItem(user_id=user_id, memory="User lives in Berlin", tags=["location"]),
-    ])
+    await redis_editor.add_items(
+        [
+            MemoryItem(user_id=user_id, memory="User likes coffee", tags=["beverage"]),
+            MemoryItem(user_id=user_id, memory="User lives in Berlin", tags=["location"]),
+        ]
+    )
     await asyncio.sleep(0.1)  # allow RediSearch to index the new documents
 
     results = await redis_editor.search(query="Tell me about the user", top_k=10, user_id=user_id)
@@ -448,17 +448,17 @@ async def test_redis_editor_search_scoped_to_user_id(
     user_a = f"user_a_{unique_suffix}"
     user_b = f"user_b_{unique_suffix}"
 
-    await redis_editor.add_items([
-        MemoryItem(user_id=user_a, memory="User A secret fact"),
-        MemoryItem(user_id=user_b, memory="User B secret fact"),
-    ])
+    await redis_editor.add_items(
+        [
+            MemoryItem(user_id=user_a, memory="User A secret fact"),
+            MemoryItem(user_id=user_b, memory="User B secret fact"),
+        ]
+    )
     await asyncio.sleep(0.1)
 
     results_a = await redis_editor.search(query="secret fact", top_k=10, user_id=user_a)
 
-    assert all(r.user_id == user_a for r in results_a), (
-        "Search for user_a must not return items belonging to user_b"
-    )
+    assert all(r.user_id == user_a for r in results_a), "Search for user_a must not return items belonging to user_b"
     memories = {r.memory for r in results_a}
     assert "User A secret fact" in memories
     assert "User B secret fact" not in memories
@@ -474,11 +474,13 @@ async def test_redis_editor_semantic_search_ranks_by_vector_distance(
     items have orthogonal vectors so their distance is sqrt(2) ≈ 1.41.
     """
     user_id = f"user_{unique_suffix}"
-    await redis_editor.add_items([
-        MemoryItem(user_id=user_id, memory="User is allergic to peanuts",         tags=["health"]),
-        MemoryItem(user_id=user_id, memory="User prefers window seats on flights", tags=["travel"]),
-        MemoryItem(user_id=user_id, memory="User's favourite language is Python",  tags=["tech"]),
-    ])
+    await redis_editor.add_items(
+        [
+            MemoryItem(user_id=user_id, memory="User is allergic to peanuts", tags=["health"]),
+            MemoryItem(user_id=user_id, memory="User prefers window seats on flights", tags=["travel"]),
+            MemoryItem(user_id=user_id, memory="User's favourite language is Python", tags=["tech"]),
+        ]
+    )
     await asyncio.sleep(0.1)
 
     results = await redis_editor.search(query=QUERY_ALLERGY, top_k=3, user_id=user_id)
@@ -500,22 +502,20 @@ async def test_redis_editor_similarity_threshold_filters_distant_results(
     A threshold of 0.01 keeps only the exact match; 10.0 keeps all three.
     """
     user_id = f"user_{unique_suffix}"
-    await redis_editor.add_items([
-        MemoryItem(user_id=user_id, memory="User drinks espresso every morning"),
-        MemoryItem(user_id=user_id, memory="User is learning to play the guitar"),
-        MemoryItem(user_id=user_id, memory="User's favourite language is Python"),
-    ])
+    await redis_editor.add_items(
+        [
+            MemoryItem(user_id=user_id, memory="User drinks espresso every morning"),
+            MemoryItem(user_id=user_id, memory="User is learning to play the guitar"),
+            MemoryItem(user_id=user_id, memory="User's favourite language is Python"),
+        ]
+    )
     await asyncio.sleep(0.1)
 
-    exact_results = await redis_editor.search(
-        query=QUERY_COFFEE, top_k=3, user_id=user_id, similarity_threshold=0.01
-    )
+    exact_results = await redis_editor.search(query=QUERY_COFFEE, top_k=3, user_id=user_id, similarity_threshold=0.01)
     assert len(exact_results) == 1
     assert exact_results[0].memory == "User drinks espresso every morning"
 
-    all_results = await redis_editor.search(
-        query=QUERY_COFFEE, top_k=3, user_id=user_id, similarity_threshold=10.0
-    )
+    all_results = await redis_editor.search(query=QUERY_COFFEE, top_k=3, user_id=user_id, similarity_threshold=10.0)
     assert len(all_results) == 3
 
 
@@ -624,9 +624,7 @@ async def test_nat_react_agent_stores_and_retrieves_memory_via_redis_memory(
         to_type=str,
         session_kwargs={"user_id": user_id, "conversation_id": conversation_id},
     )
-    assert "bullet" in second_reply.lower(), (
-        f"Expected recalled preference to mention 'bullet'; got: {second_reply!r}"
-    )
+    assert "bullet" in second_reply.lower(), f"Expected recalled preference to mention 'bullet'; got: {second_reply!r}"
 
 
 async def test_nat_memory_tools_persist_across_independent_workflow_sessions(
@@ -716,12 +714,9 @@ async def test_nat_memory_tools_persist_across_independent_workflow_sessions(
     recall = await run_workflow(
         config_file=config_path,
         prompt=(
-            f"Use get_memory to look up the favourite colour for user '{user_id}'. "
-            "Reply with only the colour name."
+            f"Use get_memory to look up the favourite colour for user '{user_id}'. Reply with only the colour name."
         ),
         to_type=str,
         session_kwargs={"user_id": user_id, "conversation_id": f"session_b_{unique_suffix}"},
     )
-    assert "ultraviolet" in recall.lower(), (
-        f"Expected 'ultraviolet' in recalled reply; got: {recall!r}"
-    )
+    assert "ultraviolet" in recall.lower(), f"Expected 'ultraviolet' in recalled reply; got: {recall!r}"
