@@ -40,7 +40,7 @@ documentation = "https://github.com/redis-developer/nemo-agent-toolkit-redis/tre
 issues = "https://github.com/redis-developer/nemo-agent-toolkit-redis/issues"
 source = "https://github.com/redis-developer/nemo-agent-toolkit-redis"
 
-[project.entry-points.'nat.components']
+[project.entry-points.'nat.plugins']
 nat_redis = "nat.plugins.redis.register"
 
 [dependency-groups]
