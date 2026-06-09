@@ -49,8 +49,23 @@ Toolkit. The setuptools entry point **`nat_redis`** loads
 
 ## Install
 
+With `uv`:
+
+```bash
+uv add nemo-agent-toolkit-redis
+```
+
+With `pip`:
+
 ```bash
 pip install nemo-agent-toolkit-redis
+```
+
+Install the package into the same Python environment as `nvidia-nat-core`. After
+installation, confirm NAT can discover the Redis plugin:
+
+```bash
+uv run nat info components
 ```
 
 For local development in this repo:
@@ -60,6 +75,12 @@ git clone https://github.com/redis-developer/nvidia-nat-redis.git
 cd nvidia-nat-redis
 uv sync --group dev --extra test
 ```
+
+## Compatibility
+
+This package supports NeMo Agent Toolkit `>=1.6.0,<2.0.0` and Python
+`>=3.11,<3.14`. Compatibility is checked in CI against supported NAT minor
+versions.
 
 ## Choose A Surface
 
@@ -154,3 +175,17 @@ The example Compose files are intended for local development. They bind Redis
 and AMS to `127.0.0.1` and run AMS with auth disabled.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Support
+
+File Redis integration bugs, Redis Agent Memory behavior questions, and package
+release issues in this repository:
+<https://github.com/redis-developer/nemo-agent-toolkit-redis/issues>.
+
+File `nvidia-nat-core` runtime, loader, or public plugin API issues in the
+NeMo Agent Toolkit repository:
+<https://github.com/NVIDIA/NeMo-Agent-Toolkit/issues>.
+
+## License
+
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
