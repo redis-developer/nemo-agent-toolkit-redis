@@ -8,11 +8,13 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from agent_memory_client import create_memory_client
-from nat.builder.builder import Builder
-from nat.builder.function_info import FunctionInfo
-from nat.cli.register_workflow import register_function
+
+# Chat request models and retry patching are runtime helpers not exported by
+# nat.plugin_api in the currently supported NAT versions.
 from nat.data_models.api_server import ChatRequest, ChatRequestOrMessage, ChatResponse
 from nat.utils.exception_handlers.automatic_retries import patch_with_retry
+
+from nvidia_nat_redis._nat_api import Builder, FunctionInfo, register_function
 
 from ..memory import RedisAgentMemoryBackendConfig
 from .config import RedisAgentMemoryAutoMemoryConfig

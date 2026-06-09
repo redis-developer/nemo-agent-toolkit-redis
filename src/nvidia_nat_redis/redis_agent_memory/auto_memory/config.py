@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from nat.data_models.component_ref import FunctionRef, MemoryRef
-from nat.data_models.function import FunctionBaseConfig
 from pydantic import BaseModel, Field, PositiveInt, field_validator
+
+from nvidia_nat_redis._nat_api import FunctionBaseConfig, FunctionRef, MemoryRef
 
 from .._text import normalize_optional_string
 

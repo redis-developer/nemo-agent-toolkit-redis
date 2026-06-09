@@ -9,8 +9,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+# Context, chat request models, and type conversion are runtime helpers not
+# exported by nat.plugin_api in the currently supported NAT versions.
 from nat.builder.context import Context
-from nat.builder.function import Function
 from nat.data_models.api_server import (
     ChatRequest,
     ChatRequestOrMessage,
@@ -19,6 +20,8 @@ from nat.data_models.api_server import (
     UserMessageContentRoleType,
 )
 from nat.utils.type_converter import GlobalTypeConverter
+
+from nvidia_nat_redis._nat_api import Function
 
 from .._text import message_content_to_text, normalize_optional_string
 from .config import RedisAgentMemoryAutoMemoryConfig

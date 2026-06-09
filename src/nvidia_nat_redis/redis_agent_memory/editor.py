@@ -11,9 +11,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from agent_memory_client import MemoryAPIClient
+
+# Runtime request context is not exported by nat.plugin_api.
 from nat.builder.context import Context
-from nat.memory.interfaces import MemoryEditor
-from nat.memory.models import MemoryItem
+
+from nvidia_nat_redis._nat_api import MemoryEditor, MemoryItem
 
 from ._text import message_content_to_text
 

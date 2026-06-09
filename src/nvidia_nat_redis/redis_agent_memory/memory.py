@@ -8,13 +8,14 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from agent_memory_client import create_memory_client
-from nat.builder.builder import Builder
-from nat.cli.register_workflow import register_memory
-from nat.data_models.memory import MemoryBaseConfig
+
+# RetryMixin and patch_with_retry are retry implementation helpers not exported
+# by nat.plugin_api in the currently supported NAT versions.
 from nat.data_models.retry_mixin import RetryMixin
-from nat.memory.interfaces import MemoryEditor
 from nat.utils.exception_handlers.automatic_retries import patch_with_retry
 from pydantic import Field
+
+from nvidia_nat_redis._nat_api import Builder, MemoryBaseConfig, MemoryEditor, register_memory
 
 from .editor import RedisAgentMemoryEditor
 
