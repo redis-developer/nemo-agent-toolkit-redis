@@ -15,12 +15,8 @@
 
 import logging
 
-from nat.data_models.object_store import KeyAlreadyExistsError, NoSuchKeyError
-from nat.object_store.interfaces import ObjectStore
-from nat.object_store.models import ObjectStoreItem
-from nat.utils.type_utils import override
-
 import redis.asyncio as redis
+from nvidia_nat_redis._nat_api import KeyAlreadyExistsError, NoSuchKeyError, ObjectStore, ObjectStoreItem
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +84,6 @@ class RedisObjectStore(ObjectStore):
     def _make_key(self, key: str) -> str:
         return f"nat/object_store/{self._bucket_name}/{key}"
 
-    @override
     async def put_object(self, key: str, item: ObjectStoreItem):
 
         if not self._client:
@@ -103,7 +98,6 @@ class RedisObjectStore(ObjectStore):
                 key=key, additional_message=f"Redis bucket {self._bucket_name} already has key {key}"
             )
 
-    @override
     async def upsert_object(self, key: str, item: ObjectStoreItem):
 
         if not self._client:
@@ -113,7 +107,6 @@ class RedisObjectStore(ObjectStore):
         item_json = item.model_dump_json()
         await self._client.set(full_key, item_json, ex=self._ttl)
 
-    @override
     async def get_object(self, key: str) -> ObjectStoreItem:
 
         if not self._client:
@@ -127,7 +120,6 @@ class RedisObjectStore(ObjectStore):
             )
         return ObjectStoreItem.model_validate_json(data)
 
-    @override
     async def delete_object(self, key: str):
 
         if not self._client:

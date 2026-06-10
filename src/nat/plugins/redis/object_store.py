@@ -13,11 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from nat.builder.builder import Builder
-from nat.cli.register_workflow import register_object_store
-from nat.data_models.common import OptionalSecretStr
-from nat.data_models.object_store import ObjectStoreBaseConfig
 from pydantic import Field, field_validator
+
+from nvidia_nat_redis._nat_api import Builder, ObjectStoreBaseConfig, OptionalSecretStr, register_object_store
 
 
 class RedisObjectStoreClientConfig(ObjectStoreBaseConfig, name="redis"):

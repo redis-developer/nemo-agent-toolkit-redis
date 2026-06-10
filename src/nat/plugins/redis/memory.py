@@ -13,12 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from nat.builder.builder import Builder
-from nat.cli.register_workflow import register_memory
-from nat.data_models.common import OptionalSecretStr, get_secret_value
-from nat.data_models.component_ref import EmbedderRef
-from nat.data_models.memory import MemoryBaseConfig
 from pydantic import Field
+
+from nvidia_nat_redis._nat_api import (
+    Builder,
+    EmbedderRef,
+    LLMFrameworkEnum,
+    MemoryBaseConfig,
+    OptionalSecretStr,
+    get_secret_value,
+    register_memory,
+)
 
 
 class RedisMemoryClientConfig(MemoryBaseConfig, name="redis_memory"):
@@ -34,8 +39,6 @@ class RedisMemoryClientConfig(MemoryBaseConfig, name="redis_memory"):
 
 @register_memory(config_type=RedisMemoryClientConfig)
 async def redis_memory_client(config: RedisMemoryClientConfig, builder: Builder):
-
-    from nat.builder.framework_enum import LLMFrameworkEnum
 
     import redis.asyncio as redis
 

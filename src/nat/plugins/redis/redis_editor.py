@@ -16,11 +16,11 @@
 import logging
 import secrets
 
-from nat.memory.interfaces import MemoryEditor
-from nat.memory.models import MemoryItem
 from redisvl.index import AsyncSearchIndex
 from redisvl.query import VectorQuery
 from redisvl.query.filter import Tag
+
+from nvidia_nat_redis._nat_api import MemoryEditor, MemoryItem
 
 logger = logging.getLogger(__name__)
 
