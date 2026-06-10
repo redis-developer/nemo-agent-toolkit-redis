@@ -37,7 +37,7 @@ try:
     )
 
     USING_PLUGIN_API = True
-except ModuleNotFoundError:  # pragma: no cover - exercised only on older NAT releases
+except ImportError:  # pragma: no cover - exercised only on older or partial NAT releases
     from nat.builder.builder import Builder
     from nat.builder.framework_enum import LLMFrameworkEnum
     from nat.builder.function import Function

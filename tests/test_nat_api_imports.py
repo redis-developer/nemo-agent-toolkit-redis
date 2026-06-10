@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import ast
+import builtins
+import importlib
 from pathlib import Path
 
 PROHIBITED_DIRECT_IMPORTS = {
@@ -57,3 +59,25 @@ def test_nat_api_facade_exposes_plugin_authoring_symbols() -> None:
         "register_object_store",
     ):
         assert hasattr(_nat_api, name)
+
+
+def test_nat_api_facade_falls_back_when_plugin_api_is_partial(monkeypatch) -> None:
+    import nvidia_nat_redis._nat_api as nat_api
+
+    real_import = builtins.__import__
+
+    def import_with_partial_plugin_api(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "nat.plugin_api":
+            raise ImportError("cannot import name 'MemoryRef' from 'nat.plugin_api'")
+        return real_import(name, globals, locals, fromlist, level)
+
+    with monkeypatch.context() as context:
+        context.setattr(builtins, "__import__", import_with_partial_plugin_api)
+        reloaded_api = importlib.reload(nat_api)
+
+    try:
+        assert reloaded_api.USING_PLUGIN_API is False
+        assert hasattr(reloaded_api, "Builder")
+        assert hasattr(reloaded_api, "register_memory")
+    finally:
+        importlib.reload(nat_api)
