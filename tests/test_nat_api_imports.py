@@ -26,6 +26,27 @@ PROHIBITED_DIRECT_IMPORTS = {
 }
 
 
+def _prohibited_import_violations(source: str, filename: str) -> list[str]:
+    tree = ast.parse(source, filename=filename)
+    violations: list[str] = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            candidate_modules = {node.module}
+            candidate_modules.update(f"{node.module}.{alias.name}" for alias in node.names)
+            for module_name in candidate_modules:
+                if module_name in PROHIBITED_DIRECT_IMPORTS:
+                    violations.append(f"{filename}:{node.lineno} imports {module_name}")
+                    break
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name in PROHIBITED_DIRECT_IMPORTS:
+                    violations.append(f"{filename}:{node.lineno} imports {alias.name}")
+                    break
+
+    return violations
+
+
 def test_runtime_plugin_code_uses_nat_api_facade_for_public_symbols() -> None:
     """Public plugin-authoring imports should flow through nvidia_nat_redis._nat_api."""
     root = Path(__file__).resolve().parents[1]
@@ -36,12 +57,26 @@ def test_runtime_plugin_code_uses_nat_api_facade_for_public_symbols() -> None:
         if source_file.name == "_nat_api.py":
             continue
 
-        tree = ast.parse(source_file.read_text(encoding="utf-8"), filename=str(source_file))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module in PROHIBITED_DIRECT_IMPORTS:
-                violations.append(f"{source_file.relative_to(root)}:{node.lineno} imports {node.module}")
+        violations.extend(
+            _prohibited_import_violations(source_file.read_text(encoding="utf-8"), str(source_file.relative_to(root)))
+        )
 
     assert not violations, "\n".join(violations)
+
+
+def test_import_guard_catches_prohibited_import_forms() -> None:
+    source = """
+from nat.builder.builder import Builder
+from nat.builder import builder
+import nat.builder.builder
+import nat.plugins.redis.register
+"""
+
+    assert _prohibited_import_violations(source, "sample.py") == [
+        "sample.py:2 imports nat.builder.builder",
+        "sample.py:3 imports nat.builder.builder",
+        "sample.py:4 imports nat.builder.builder",
+    ]
 
 
 def test_nat_api_facade_exposes_plugin_authoring_symbols() -> None:
