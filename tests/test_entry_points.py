@@ -11,9 +11,13 @@ def test_nat_redis_entry_point_loads_registered_components() -> None:
     from nat.cli.type_registry import GlobalTypeRegistry
 
     plugins = entry_points(group="nat.plugins")
-    redis_entry_points = [plugin for plugin in plugins if plugin.name == "nat_redis"]
+    redis_entry_points = [
+        plugin
+        for plugin in plugins
+        if plugin.name == "nat_redis" and plugin.value == "nat.plugins.redis.register"
+    ]
 
-    assert redis_entry_points, "Expected nat_redis to be registered in the nat.plugins entry point group"
+    assert redis_entry_points, "Expected nat_redis to target nat.plugins.redis.register in the nat.plugins group"
 
     redis_entry_points[0].load()
 
