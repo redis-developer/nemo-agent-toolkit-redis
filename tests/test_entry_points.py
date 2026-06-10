@@ -12,9 +12,7 @@ def test_nat_redis_entry_point_loads_registered_components() -> None:
 
     plugins = entry_points(group="nat.plugins")
     redis_entry_points = [
-        plugin
-        for plugin in plugins
-        if plugin.name == "nat_redis" and plugin.value == "nat.plugins.redis.register"
+        plugin for plugin in plugins if plugin.name == "nat_redis" and plugin.value == "nat.plugins.redis.register"
     ]
 
     assert redis_entry_points, "Expected nat_redis to target nat.plugins.redis.register in the nat.plugins group"
