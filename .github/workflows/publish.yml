@@ -32,8 +32,6 @@ jobs:
             uv.lock
 
       - name: Build package
-        env:
-          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ github.event.release.tag_name }}
         run: |
           VERSION="${{ github.event.release.tag_name }}"
           SETUPTOOLS_SCM_PRETEND_VERSION="${VERSION#v}" uv build
