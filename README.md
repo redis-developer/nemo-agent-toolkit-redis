@@ -1,7 +1,7 @@
 <div align="center">
 <img src="assets/redis-logo.svg" alt="Redis" width="175px">
 
-# Nvidia-NAT-Redis
+# nemo-agent-toolkit-redis
 </div>
 
 **Redis-backed memory for [NVIDIA NeMo Agent Toolkit](https://github.com/NVIDIA/NeMo-Agent-Toolkit)** — production [Redis Agent Memory](https://redis.github.io/agent-memory-server/quick-start/) integrations plus direct Redis plugins (the historical `nat.plugins.redis` stack).
@@ -71,8 +71,8 @@ uv run nat info components
 For local development in this repo:
 
 ```bash
-git clone https://github.com/redis-developer/nvidia-nat-redis.git
-cd nvidia-nat-redis
+git clone https://github.com/redis-developer/nemo-agent-toolkit-redis.git
+cd nemo-agent-toolkit-redis
 uv sync --group dev --extra test
 ```
 
