@@ -17,7 +17,7 @@
 # isort:skip_file
 
 # Import any providers which need to be automatically registered here.
-# The ``nat.components`` entry point ``nat_redis`` targets this module.
+# The ``nat.plugins`` entry point ``nat_redis`` targets this module.
 
 from . import memory
 from . import object_store

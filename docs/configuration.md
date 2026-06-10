@@ -13,7 +13,7 @@ Direct Redis memory provides a more standard semantic memory layer for LLM appli
 1. Long-term memory backend: `_type: redis_agent_memory_backend`
 2. Native automatic wrapper: `_type: redis_agent_memory_auto_memory`
 
-**Direct Redis (entry point `nat_redis` → `nat.plugins.redis.register`)**
+**Direct Redis (`nat.plugins` entry point `nat_redis` → `nat.plugins.redis.register`)**
 
 3. In-Redis vector memory: `_type: redis_memory`
 4. Object store: `_type: redis`

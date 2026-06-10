@@ -22,8 +22,8 @@ AMS runs as a separate service; these surfaces talk to it via the agent-memory c
 
 ### Direct Redis (simple in-Redis memory)
 
-Loaded via the `nat_redis` setuptools entry point (same name as the historical
-monorepo package):
+Loaded via the `nat.plugins` setuptools entry point `nat_redis` (same name as
+the historical monorepo package):
 
 - `_type: redis_memory` — Vector search over JSON documents in Redis (RediSearch); requires a workflow `embedder` and Redis Stack (or Redis with search + JSON support). Implements **`MemoryEditor`**-style semantic memory without AMS.
 - `_type: redis` — NAT **object store** on plain Redis key–value storage (not semantic long-term memory).
@@ -42,7 +42,7 @@ without AMS.
 
 Direct Redis support is implemented only under **`nat.plugins.redis`** (for example
 `from nat.plugins.redis.redis_editor import RedisEditor`), matching NeMo Agent
-Toolkit. The setuptools entry point **`nat_redis`** loads
+Toolkit. The `nat.plugins` setuptools entry point **`nat_redis`** loads
 `nat.plugins.redis.register`. Redis Agent Memory code lives under
 **`nvidia_nat_redis.redis_agent_memory`**.
 
