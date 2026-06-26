@@ -25,6 +25,7 @@ dependencies = [
   "numpy>=1.24",
   "nvidia-nat-core>=1.6.0,<2.0.0",
   "redis>=5.0.0,<6.0.0",
+  "redis-agent-memory>=0.0.4,<1.0.0",
   "redisvl>=0.16.0,<1.0.0",
 ]
 
@@ -65,7 +66,8 @@ package = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 
 [tool.ruff]
