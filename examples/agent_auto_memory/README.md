@@ -41,7 +41,7 @@ The example expects:
 ## Start Services
 
 Compose starts Redis Stack and Redis Agent Memory containers for local development. Both
-ports bind to `127.0.0.1`, and AMS auth is disabled.
+ports bind to `127.0.0.1`, and Agent Memory auth is disabled.
 
 ```bash
 docker compose \

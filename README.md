@@ -36,7 +36,7 @@ the historical monorepo package):
 
 Use **Redis Agent Memory** when you want the Redis Agent Memory feature set.
 Use **`redis_memory`** when you only need a lightweight Redis-native `MemoryEditor`
-without AMS.
+without automatic Agent Memory.
 
 ### Python imports (same as NeMo)
 
@@ -172,7 +172,7 @@ make test-integration
 ```
 
 The example Compose files are intended for local development. They bind Redis
-and AMS to `127.0.0.1` and run AMS with auth disabled.
+and Redis Agent Memory to `127.0.0.1` and run Redis Agent Memory with auth disabled.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
