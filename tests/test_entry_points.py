@@ -25,4 +25,5 @@ def test_nat_redis_entry_point_loads_registered_components() -> None:
 
     assert "redis_memory" in memory_types
     assert "redis_agent_memory_backend" in memory_types
+    assert "cloud_redis_agent_memory" in memory_types
     assert "redis" in object_store_types

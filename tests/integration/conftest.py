@@ -203,3 +203,34 @@ def ams_stack_with_api(openai_api_key: str) -> dict[str, str]:
 @pytest.fixture
 def unique_suffix() -> str:
     return uuid4().hex[:10]
+
+
+@pytest.fixture(scope="session")
+def cloud_ams_stack() -> dict[str, str]:
+    """Session-scoped fixture for the live Redis Agent Memory cloud service.
+
+    Reads credentials from environment variables (load your .env before running):
+      AGENT_MEMORY_ENDPOINT    – cloud service base URL
+      AGENT_MEMORY_API_KEY     – Bearer token
+      AGENT_MEMORY_STORE_ID    – cloud store ID
+
+    Skips automatically when any variable is absent.
+    """
+    endpoint = os.environ.get("AGENT_MEMORY_ENDPOINT")
+    api_key = os.environ.get("AGENT_MEMORY_API_KEY")
+    store_id = os.environ.get("AGENT_MEMORY_STORE_ID")
+
+    missing = [
+        name
+        for name, val in [
+            ("AGENT_MEMORY_ENDPOINT", endpoint),
+            ("AGENT_MEMORY_API_KEY", api_key),
+            ("AGENT_MEMORY_STORE_ID", store_id),
+        ]
+        if not val
+    ]
+
+    if missing:
+        pytest.skip(f"Cloud AMS credentials not set: {', '.join(missing)}")
+
+    return {"base_url": endpoint, "api_key": api_key, "store_id": store_id}
