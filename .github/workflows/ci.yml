@@ -103,6 +103,10 @@ jobs:
       - name: Docker Info
         run: docker info
       - name: Integration Tests
+        env:
+          AGENT_MEMORY_ENDPOINT: ${{ secrets.AGENT_MEMORY_ENDPOINT }}
+          AGENT_MEMORY_API_KEY: ${{ secrets.AGENT_MEMORY_API_KEY }}
+          AGENT_MEMORY_STORE_ID: ${{ secrets.AGENT_MEMORY_STORE_ID }}
         run: uv run python -m pytest tests/integration --run-integration
 
   integration-api:
