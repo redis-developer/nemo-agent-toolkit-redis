@@ -31,7 +31,7 @@ the historical monorepo package):
 | | **Redis Agent Memory** | **Direct Redis** |
 | --- | --- | --- |
 | **Runs** | Agent Memory service + Redis | Redis only (your NAT process uses the client) |
-| **Best for** | Learning-style memory, working memory, Agenty Memory filters and APIs | Lightweight Redis-native memory or KV object store |
+| **Best for** | Learning-style memory, working memory, Agent Memory filters and APIs | Lightweight Redis-native memory or KV object store |
 | **Tradeoff** | Operate Agent Memory; HTTP path | Simpler ops for `redis` / `redis_memory`; vector path needs embedder + search-capable Redis |
 
 Use **Redis Agent Memory** when you want the Redis Agent Memory feature set.

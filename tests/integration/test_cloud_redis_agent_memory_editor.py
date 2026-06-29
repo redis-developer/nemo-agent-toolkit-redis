@@ -51,7 +51,10 @@ def cloud_credentials() -> dict[str, str]:
     return {"base_url": endpoint, "api_key": api_key, "store_id": store_id}
 
 
-@pytest.fixture(scope="session")
+# Function-scoped: the AgentMemory client binds to the running event loop, so it
+# must not outlive the per-test loop (a session-scoped client breaks under the
+# default function loop scope).
+@pytest.fixture
 def editor(cloud_credentials: dict[str, str]) -> CloudRedisAgentMemoryEditor:
     from redis_agent_memory import AgentMemory
 
