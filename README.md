@@ -164,8 +164,10 @@ make build
 make check
 ```
 
-Integration tests are opt-in because they start real Redis and Agent Memory
-Server containers:
+`make test` runs the whole suite. Integration tests skip themselves when their
+infrastructure is absent (no Docker, unreachable Agent Memory Server, or missing
+API/cloud credentials), so a bare run stays green anywhere. To run just the
+integration tests where that infrastructure exists:
 
 ```bash
 make test-integration
