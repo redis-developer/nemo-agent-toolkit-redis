@@ -43,10 +43,6 @@ class CloudRedisAgentMemoryBackendConfig(MemoryBaseConfig, RetryMixin, name="clo
         description="Cloud store identifier. Falls back to AGENT_MEMORY_STORE_ID env var.",
     )
     timeout_ms: int = Field(default=30_000, description="HTTP timeout for client operations in milliseconds.")
-    default_namespace: str | None = Field(
-        default=None,
-        description="Default namespace applied to created records when namespace is not specified per-item.",
-    )
 
 
 @register_memory(config_type=CloudRedisAgentMemoryBackendConfig)
@@ -93,7 +89,6 @@ async def cloud_redis_agent_memory_backend_client(
             )
         yield editor
     finally:
-        if hasattr(client, "aclose"):
-            await client.aclose()
-        elif hasattr(client, "close"):
-            client.close()
+        # AgentMemory (Speakeasy BaseSDK) exposes lifecycle only via __aexit__,
+        # not aclose()/close(); without this the httpx client leaks until GC.
+        await client.__aexit__(None, None, None)
