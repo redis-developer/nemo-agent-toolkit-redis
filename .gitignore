@@ -11,3 +11,5 @@ dist/
 htmlcov/
 
 NeMo-Agent-Toolkit-3P-repositories.pdf
+
+.claude/settings.local.json

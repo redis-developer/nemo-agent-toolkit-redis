@@ -1628,6 +1628,7 @@ dependencies = [
     { name = "numpy" },
     { name = "nvidia-nat-core" },
     { name = "redis" },
+    { name = "redis-agent-memory" },
     { name = "redisvl" },
 ]
 
@@ -1656,6 +1657,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3,<9.0" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.24,<1.0" },
     { name = "redis", specifier = ">=5.0.0,<6.0.0" },
+    { name = "redis-agent-memory", specifier = ">=0.0.4,<1.0.0" },
     { name = "redisvl", specifier = ">=0.16.0,<1.0.0" },
     { name = "testcontainers", marker = "extra == 'test'", specifier = ">=4.3.1,<5" },
 ]
@@ -2595,6 +2597,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6a/cf/128b1b6d7086200c9f387bd4be9b2572a30b90745ef078bd8b235042dc9f/redis-5.3.1.tar.gz", hash = "sha256:ca49577a531ea64039b5a36db3d6cd1a0c7a60c34124d46924a45b956e8cf14c", size = 4626200, upload-time = "2025-07-25T08:06:27.778Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/26/5c5fa0e83c3621db835cfc1f1d789b37e7fa99ed54423b5f519beb931aa7/redis-5.3.1-py3-none-any.whl", hash = "sha256:dc1909bd24669cc31b5f67a039700b16ec30571096c5f1f0d9d2324bff31af97", size = 272833, upload-time = "2025-07-25T08:06:26.317Z" },
+]
+
+[[package]]
+name = "redis-agent-memory"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpcore" },
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e1/a2/75d50a75d871d49b53f0e4aa4b03c3e4607f79ec7a0e291497ccffffc340/redis_agent_memory-0.1.1.tar.gz", hash = "sha256:e96cfa3713d9d526792296b72ed6a903c32307928e9e4512aea2fcc4079a1540", size = 59010, upload-time = "2026-06-26T10:31:36.45Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/3e/46131dbf96c2e76c132fe0aabc7b5712a21a2474ef53a40da6fe3661a67e/redis_agent_memory-0.1.1-py3-none-any.whl", hash = "sha256:08b988ecccd3faeffe4a521a7ccc9cd19135ca69ea6b0475cddfa01bfd4a7cb2", size = 109561, upload-time = "2026-06-26T10:31:34.92Z" },
 ]
 
 [[package]]

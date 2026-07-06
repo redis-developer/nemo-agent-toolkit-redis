@@ -48,9 +48,9 @@ Supported config fields:
 
 Runtime behavior:
 
-- `add_items()` creates long-term memories with optional AMS fields such as `session_id`, `namespace`, `entities`, `event_date`, and `memory_type`
+- `add_items()` creates long-term memories with optional Agent Memory fields such as `session_id`, `namespace`, `entities`, `event_date`, and `memory_type`
 - `add_items()` falls back to NAT `conversation_id` for `session_id` when no explicit value is provided
-- `search()` requires `user_id` and forwards AMS filters such as `session_id`, `namespace`, `topics`, `entities`, `memory_type`, `distance_threshold`, and `recency`
+- `search()` requires `user_id` and forwards Agent Memory filters such as `session_id`, `namespace`, `topics`, `entities`, `memory_type`, `distance_threshold`, and `recency`
 - `search()` falls back to NAT `user_id` when the current runtime context provides one
 - `remove_items()` supports direct deletion by `memory_id` / `memory_ids` or filtered deletion by search
 

@@ -1,4 +1,4 @@
-.PHONY: setup lint test test-integration test-integration-api validate build check clean
+.PHONY: setup lint test test-integration validate build check clean
 
 setup:
 	uv sync --group dev --extra test
@@ -11,10 +11,7 @@ test:
 	uv run python -m pytest
 
 test-integration:
-	uv run python -m pytest tests/integration --run-integration
-
-test-integration-api:
-	uv run python -m pytest tests/integration --run-integration --run-api-tests
+	uv run python -m pytest tests/integration
 
 validate:
 	uv run nat validate --config_file examples/tool_based_memory/configs/config.yml

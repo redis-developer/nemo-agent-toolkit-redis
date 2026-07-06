@@ -37,7 +37,7 @@ Edit `examples/tool_based_memory/.env`:
 ## Start Services
 
 Compose starts Redis Stack and Agent Memory Server for local development. Both
-ports bind to `127.0.0.1`, and AMS auth is disabled.
+ports bind to `127.0.0.1`, and Agent Memory auth is disabled.
 
 ```bash
 docker compose \
