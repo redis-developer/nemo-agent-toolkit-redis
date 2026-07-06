@@ -159,7 +159,7 @@ def _build_long_term_filter(
     if session_id:
         kwargs["sessionId"] = SessionIDFilter(eq=session_id)
     if topics:
-        kwargs["topics"] = TopicsFilter(any=topics)
+        kwargs["topics"] = TopicsFilter(in_=topics)
     if memory_type:
         kwargs["memoryType"] = MemoryTypeFilter(eq=memory_type)
 
@@ -307,7 +307,7 @@ class CloudRedisAgentMemoryEditor(MemoryEditor):
         for record in getattr(response, "items", []) or []:
             text = getattr(record, "text", "") or ""
             record_topics = _normalize_strings(getattr(record, "topics", None)) or []
-            result_user_id = getattr(record, "ownerId", None) or user_id
+            result_user_id = getattr(record, "owner_id", None) or user_id
 
             memories.append(
                 MemoryItem(
