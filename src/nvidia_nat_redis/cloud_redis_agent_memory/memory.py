@@ -79,6 +79,7 @@ async def cloud_redis_agent_memory_backend_client(
         config.base_url,
         api_key=api_key,
         store_id=store_id,
+        timeout_ms=config.timeout_ms,
     )
 
     try:
